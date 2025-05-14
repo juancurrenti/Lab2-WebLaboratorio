@@ -1,0 +1,136 @@
+extends layout
+
+block content
+  head
+    title Actualizar Usuario
+
+  div.container.margin-top-custom
+    h1 Actualizar Usuario
+
+    // Campo para mensajes de éxito o error
+    if mensajeExito
+      div.alert.alert-success(role="alert") #{mensajeExito}
+    if mensajeError
+      div.alert.alert-danger(role="alert") #{mensajeError}
+
+    // Campo de búsqueda con menú desplegable
+    .form-group
+      label(for="busquedaUsuario") Buscar Usuario por Nombre o Correo:
+      input(type="text" id="busquedaUsuario" class="form-control" onkeyup="buscarUsuariosTiempoReal()" placeholder="Escriba nombre o correo..." autocomplete="off")
+      ul#resultadosBusqueda(class="list-group mt-2")
+
+    // Formulario para editar usuario
+    form(action="/admin/actualizar-usuario" method="POST" enctype="multipart/form-data" onsubmit="return confirmarActualizarUsuario()")
+      input(type="hidden" name="idUsuario" id="idUsuario") 
+      .form-group
+        label(for="nombre") Nombre:
+        input(type="text" name="nombre" id="nombre" class="form-control" required)
+
+      .form-group
+        label(for="correo_electronico") Correo Electrónico:
+        input(type="email" name="correo_electronico" id="correoElectronico" class="form-control" required)
+
+      .form-group
+        label(for="password") Contraseña:
+        input(type="password" name="password" id="password" class="form-control")
+
+      .form-group
+        label(for="rol") Rol:
+        select(name="rol" id="rol" class="form-control")
+          option(value="recepcionista") Recepcionista
+          option(value="tecnico") Técnico
+          option(value="bioquímico") Bioquímico
+          option(value="admin") Administrador
+
+      .form-group
+        label(for="foto") Foto de Perfil:
+        img#fotoActual(src="/public/img/default-avatar.png" alt="Foto Usuario" class="img-thumbnail mb-2" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%;")
+        input(type="file" name="foto" id="foto" class="form-control" accept="image/*")
+
+      .form-group
+        button(type="submit" class="btn btn-success") Actualizar Usuario
+        button(type="button" onclick="eliminarUsuario()" class="btn btn-danger") Eliminar Usuario
+
+    // Mostrar mensaje de actualización
+    div#mensaje
+
+    script.
+      // Función para buscar usuarios en tiempo real
+      function buscarUsuariosTiempoReal() {
+        const busqueda = document.getElementById("busquedaUsuario").value;
+        if (!busqueda) {
+          document.getElementById("resultadosBusqueda").innerHTML = "";
+          return;
+        }
+
+        fetch(`/admin/actualizarUsuarioAdm?nombre=${busqueda}`)
+          .then(response => response.json())
+          .then(data => {
+            const resultados = document.getElementById("resultadosBusqueda");
+            resultados.innerHTML = ""; // Limpia los resultados previos
+
+            if (data.usuarios && data.usuarios.length > 0) {
+              data.usuarios.forEach(usuario => {
+                const li = document.createElement("li");
+                li.className = "list-group-item list-group-item-action";
+                li.textContent = `${usuario.nombre_usuario} (${usuario.correo_electronico}) - ${usuario.rol}`;
+                li.onclick = () => seleccionarUsuario(usuario);
+                resultados.appendChild(li);
+              });
+            } else {
+              resultados.innerHTML = '<li class="list-group-item">No se encontraron usuarios</li>';
+            }
+          })
+          .catch(error => {
+            console.error("Error en la búsqueda:", error);
+          });
+      }
+
+      // Seleccionar un usuario del menú desplegable
+      function seleccionarUsuario(usuario) {
+        document.getElementById("idUsuario").value = usuario.id_Usuario; // Rellenar el ID oculto
+        document.getElementById("nombre").value = usuario.nombre_usuario;
+        document.getElementById("correoElectronico").value = usuario.correo_electronico;
+        document.getElementById("rol").value = usuario.rol;
+        if (usuario.urlFoto) {
+          document.getElementById("fotoActual").src = usuario.urlFoto; // Muestra la foto actual
+        } else {
+          document.getElementById("fotoActual").src = "/public/img/default-avatar.png";
+        }
+        document.getElementById("resultadosBusqueda").innerHTML = ""; // Limpia el menú desplegable
+      }
+
+      function confirmarActualizarUsuario() {
+        return confirm("¿Estás seguro de que deseas actualizar este usuario?");
+      }
+
+      function eliminarUsuario() {
+        const idUsuario = document.getElementById("idUsuario").value;
+        if (!idUsuario) {
+          document.getElementById("mensaje").innerHTML = "Debe seleccionar un usuario para eliminar.";
+          return;
+        }
+        if (confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
+          fetch(`/admin/eliminarUsuarioAdm/${idUsuario}`, {
+            method: "DELETE",
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.mensaje) {
+                document.getElementById("mensaje").innerHTML = data.mensaje;
+                // Vaciar los campos después de eliminar
+                document.getElementById('idUsuario').value = "";
+                document.getElementById('nombre').value = "";
+                document.getElementById("correoElectronico").value = "";
+                document.getElementById("rol").value = "";
+                document.getElementById("password").value = "";
+                document.getElementById("fotoActual").src = "/public/img/default-avatar.png";
+              } else {
+                document.getElementById("mensaje").innerHTML = "Usuario no encontrado";
+              }
+            })
+            .catch(error => {
+              console.error("Error al eliminar el usuario:", error);
+            });
+        }
+      }

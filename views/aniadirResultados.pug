@@ -1,0 +1,99 @@
+extends layout
+
+block content
+  title Añadir resultados
+
+  .container
+    h1.margin-top-custom Añadir Resultados para la Muestra #{muestra.id_Muestra} (#{muestra.Tipo_Muestra})
+
+    form(method="POST", action=`/muestras/mostrar/aniadirResultados/${muestra.id_Muestra}`)
+      .form-group
+        label(for="id_determinacion") Determinación
+        select#id_determinacion.form-control(name="id_determinacion" required)
+          option(value="") -- Seleccionar Determinación --
+          each determinacion in determinaciones
+            option(value=determinacion.id_Determinacion) #{determinacion.Nombre_Determinacion}
+
+      .form-group
+        label(for="valor_final") Valor Final
+        input#valor_final.form-control(type="text" name="valor_final" required)
+        
+        label(for="unidad_medida") Unidad de Medida
+        select#unidad_medida.form-control(name="unidad_medida" required, oninput="customUnitInputCheck()")
+          option(value="") -- Seleccionar Unidad de Medida --
+          option(value="mg/dL") mg/dL
+          option(value="mmol/L") mmol/L
+          option(value="g/dL") g/dL
+          option(value="UI/L") UI/L
+          option(value="%") %
+          option(value="µg/L") µg/L
+          option(value="ng/mL") ng/mL
+          option(value="pg/mL") pg/mL
+          option(value="mEq/L") mEq/L
+          option(value="mg/L") mg/L
+          option(value="custom") Otra (Ingresar manualmente)
+        input#custom_unidad_medida.form-control(type="text" name="custom_unidad_medida" placeholder="Ingresar unidad de medida" style="display:none;")
+
+      button.btn.btn-primary(type="submit") Guardar Resultado
+      a.btn.btn-secondary(href=`/muestras/mostrar/${muestra.id_Orden}`) Cancelar
+
+    h2.margin-top-custom Valores de Referencia
+    table#valoresReferenciaTable.table.table-bordered
+      thead
+        tr
+          th Valor Mínimo
+          th Valor Máximo
+          th Sexo
+          th Edad Mínima
+          th Edad Máxima
+      tbody
+
+  script.
+    const muestra = !{JSON.stringify(muestra)}; // Convertir muestra a JSON y asignar a muestra en JavaScript
+
+    document.getElementById('id_determinacion').addEventListener('change', async function() {
+      const idDeterminacion = this.value;
+      if (idDeterminacion) {
+        try {
+          const url = `/muestras/mostrar/aniadirResultados/${muestra.id_Muestra}/valoresReferencia/${idDeterminacion}`; // Construir la URL dinámicamente
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          const valoresReferencia = await response.json();
+
+          const tbody = document.querySelector('#valoresReferenciaTable tbody');
+          tbody.innerHTML = ''; // Limpiar la tabla antes de agregar nuevas filas
+
+          valoresReferencia.forEach(valor => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${valor.Valor_Referencia_Minimo}</td>
+              <td>${valor.Valor_Referencia_Maximo}</td>
+              <td>${valor.Sexo}</td>
+              <td>${valor.Edad_Minima}</td>
+              <td>${valor.Edad_Maxima}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } catch (error) {
+          error('Error al obtener valores de referencia:', error);
+        }
+      } else {
+        // Limpiar la tabla si no hay una determinación seleccionada
+        document.querySelector('#valoresReferenciaTable tbody').innerHTML = '';
+      }
+    });
+
+    function customUnitInputCheck() {
+      const unidadMedidaSelect = document.getElementById('unidad_medida');
+      const customUnidadMedidaInput = document.getElementById('custom_unidad_medida');
+      if (unidadMedidaSelect.value === 'custom') {
+        customUnidadMedidaInput.style.display = 'block';
+        customUnidadMedidaInput.required = true;
+      } else {
+        customUnidadMedidaInput.style.display = 'none';
+        customUnidadMedidaInput.required = false;
+        customUnidadMedidaInput.value = ''; 
+      }
+    }

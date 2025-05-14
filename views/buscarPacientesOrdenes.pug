@@ -1,0 +1,122 @@
+extends layout
+
+block content
+  head 
+    title Buscar órdenes de trabajo
+  body
+    .container
+      h1 Buscar Orden de Trabajo
+
+      // Campo de búsqueda dinámica
+      .form-group
+        label(for="searchPaciente") Buscar paciente (DNI, Nombre, Apellido, Email):
+        input#searchPaciente(type="text" class="form-control" placeholder="Escribe para buscar pacientes")
+
+      // Menú desplegable dinámico
+      ul#dropdown-menu(class="dropdown-menu" style="display: none; position: relative;")
+
+      // Botón para buscar órdenes del paciente seleccionado
+      button#buscarOrdenesBtn(type="button" class="btn btn-primary" disabled style="margin-top: 10px;") Buscar órdenes para paciente seleccionado
+
+      // Contenedor de resultados de órdenes
+      h2(style="margin-top: 20px;") Órdenes de Trabajo
+      div#ordenesResultados(style="margin-top: 20px;")
+
+      // Mensaje de error o información
+      p#mensaje(style="color: #ff4040; margin-top: 10px;")
+
+    // Scripts
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
+
+    // Script para manejo de búsqueda dinámica y visualización de órdenes
+    script.
+      document.addEventListener('DOMContentLoaded', function () {
+        const searchPacienteInput = document.getElementById('searchPaciente');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const buscarOrdenesBtn = document.getElementById('buscarOrdenesBtn');
+        const ordenesResultados = document.getElementById('ordenesResultados');
+        const mensaje = document.getElementById('mensaje');
+        let selectedPaciente = null;
+
+        // Función para buscar pacientes dinámicamente
+        const buscarPacientes = async (query) => {
+          try {
+            if (!query) {
+              dropdownMenu.style.display = 'none';
+              return;
+            }
+
+            const response = await axios.get('/buscar-paciente-dinamico', { params: { query } });
+            const pacientes = response.data;
+
+            dropdownMenu.innerHTML = ''; // Limpia el menú
+            if (pacientes.length > 0) {
+              dropdownMenu.style.display = 'block';
+              pacientes.forEach((paciente) => {
+                const li = document.createElement('li');
+                li.className = 'dropdown-item';
+                li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni} - Email: ${paciente.email}`;
+                li.dataset.pacienteId = paciente.id_Paciente;
+                li.addEventListener('click', () => seleccionarPaciente(paciente));
+                dropdownMenu.appendChild(li);
+              });
+            } else {
+              dropdownMenu.style.display = 'none';
+            }
+          } catch (error) {
+            console.error('Error al buscar pacientes:', error);
+          }
+        };
+
+        // Función para seleccionar un paciente del menú
+        const seleccionarPaciente = (paciente) => {
+          selectedPaciente = paciente;
+          buscarOrdenesBtn.disabled = false; // Habilita el botón
+          dropdownMenu.style.display = 'none'; // Oculta el menú
+          searchPacienteInput.value = `${paciente.nombre} ${paciente.apellido} DNI:  ${paciente.dni} `; 
+      // Muestra el nombre en el campo
+        };
+
+        // Función para buscar órdenes de trabajo
+        const buscarOrdenes = async () => {
+          if (!selectedPaciente) return;
+
+          try {
+            const response = await axios.post('/BuscarOrdenes/buscar-ordenes', { idPaciente: selectedPaciente.id_paciente });
+            const ordenes = response.data;
+
+            ordenesResultados.innerHTML = ''; // Limpia los resultados
+            if (ordenes.length > 0) {
+              ordenes.forEach((orden) => {
+                const ordenDiv = document.createElement('div');
+                ordenDiv.classList.add('card', 'mb-3');
+                ordenDiv.innerHTML = `
+                  <div class="card">
+                    <div class="card-header">
+                      Orden #${orden.id_Orden}
+                    </div>
+                    <div class="card-body">
+                      <h5 class="card-title">Estado: ${orden.estado}</h5>
+                      <p class="card-text">Fecha de Creación: ${orden.Fecha_Creacion}</p>
+                      <p class="card-text">Fecha de Entrega: ${orden.Fecha_Entrega}</p>
+                      <a href="/BuscarOrdenes/crear-modificar-orden/${orden.id_Orden}" class="btn btn-secondary">Modificar Orden</a>
+                    </div>
+                  </div>
+                `;
+                ordenesResultados.appendChild(ordenDiv);
+              });
+            } else {
+              ordenesResultados.innerHTML = `
+                <p> No se encontraron órdenes para el paciente seleccionado.</p>
+              `;
+            }
+          } catch (error) {
+            console.error('Error al buscar órdenes:', error);
+            mensaje.textContent = 'Error al buscar órdenes.';
+          }
+        };
+
+        // Listeners
+        searchPacienteInput.addEventListener('input', (e) => buscarPacientes(e.target.value.trim()));
+        buscarOrdenesBtn.addEventListener('click', buscarOrdenes);
+      });

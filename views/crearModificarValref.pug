@@ -1,0 +1,33 @@
+extends layout
+
+block content
+  head
+    title Crear/Modificar Valores de Referencia
+
+  div.container.margin-top-custom
+    h1 Crear/Modificar Valores de Referencia
+
+    form#crear-modificar-valores-form(action=`/buscar-valores/crear-modificar-valores-referencia/${valorReferenciaExistente.id_ValorReferencia}`, method="POST")
+      div.form-group
+        label(for="Edad_Minima") Edad Mínima:
+        input#Edad_Minima(type="number" name="Edad_Minima" value=valorReferenciaExistente.Edad_Minima class="form-control" required)
+      div.form-group
+        label(for="Edad_Maxima") Edad Máxima:
+        input#Edad_Maxima(type="number" name="Edad_Maxima" value=valorReferenciaExistente.Edad_Maxima class="form-control" required)
+      div.form-group
+        label(for="Sexo") Sexo:
+        select#Sexo(name="Sexo" class="form-control" required)
+          option(value="M" selected=valorReferenciaExistente.Sexo === 'M') Masculino
+          option(value="F" selected=valorReferenciaExistente.Sexo === 'F') Femenino
+      div.form-group
+        label(for="Valor_Referencia_Minimo") Valor Mínimo:
+        input#Valor_Referencia_Minimo(type="number" step="0.01" name="Valor_Referencia_Minimo" value=valorReferenciaExistente.Valor_Referencia_Minimo class="form-control" required)
+      div.form-group
+        label(for="Valor_Referencia_Maximo") Valor Máximo:
+        input#Valor_Referencia_Maximo(type="number" step="0.01" name="Valor_Referencia_Maximo" value=valorReferenciaExistente.Valor_Referencia_Maximo class="form-control" required)
+      div.form-group
+        label(for="estado") Estado:
+        select#estado(name="estado" class="form-control" required)
+          option(value="1" selected=valorReferenciaExistente.estado === 1) Activo
+          option(value="0" selected=valorReferenciaExistente.estado === 0) Inactivo
+      button.btn.btn-primary(type="submit" onclick="return confirm('¿Estás seguro de guardar los cambios en el valor de referencia?')") Guardar Valores de Referencia

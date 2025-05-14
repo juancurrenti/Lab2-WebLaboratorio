@@ -1,0 +1,17 @@
+extends layout
+
+block content
+  head
+    title Seleccionar Paciente
+
+
+  body
+    div.container
+      div#content
+        h1(class="mt-5") Seleccionar Paciente
+        p Elige un paciente de la lista:
+
+        ul(class="list-group")
+          each paciente in pacientes
+            li(class="list-group-item")
+              a(href=`/editar-paciente/${paciente.id_paciente}?searchTerm=${searchTerm}&searchType=${searchType}`) #{paciente.apellido} #{paciente.nombre},    DNI: #{paciente.dni}

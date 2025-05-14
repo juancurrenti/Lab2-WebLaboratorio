@@ -1,0 +1,50 @@
+extends layout
+
+block content
+  .container
+    h1.mt-4 Listado de Exámenes Disponibles
+
+    .form-group.mt-3
+      label(for="search_examen") Buscar Examen:
+      input#search_examen(type="text" class="form-control" placeholder="Escribe para buscar por nombre o código..." autocomplete="off")
+
+    table.table.table-striped.mt-4
+      thead
+        tr
+          th Código
+          th Nombre del Examen
+          th Descripción
+      tbody#examsTable
+
+  script.
+    // Recibimos la lista de exámenes desde el servidor
+    const exams = !{JSON.stringify(exams)};
+
+    const searchInput = document.getElementById("search_examen");
+    const examsTable = document.getElementById("examsTable");
+
+    function renderExams(filteredExams) {
+      examsTable.innerHTML = "";
+      filteredExams.forEach(exam => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${exam.codigo || ''}</td>
+          <td>${exam.nombre_examen}</td>
+          <td>${exam.descripcion || ''}</td>
+        `;
+        examsTable.appendChild(tr);
+      });
+    }
+
+    // Render inicial con todos los exámenes
+    renderExams(exams);
+
+    // Filtrar en tiempo real por nombre o código
+    searchInput.addEventListener("input", () => {
+      const searchTerm = searchInput.value.toLowerCase();
+      const filteredExams = exams.filter(exam => {
+        return (exam.nombre_examen && exam.nombre_examen.toLowerCase().includes(searchTerm)) ||
+               (exam.codigo && exam.codigo.toLowerCase().includes(searchTerm));
+      });
+      renderExams(filteredExams);
+    });

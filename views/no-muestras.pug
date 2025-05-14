@@ -1,0 +1,10 @@
+extends layout
+
+block content
+  head
+    title Sin Muestras
+  body
+    .container
+      h1 No hay muestras asociadas a esta orden
+      p.text-muted No se encontraron muestras para la orden con ID #{id_Orden}.
+      a.btn.btn-primary.mt-4(href=`/buscarOrdenes/crear-modificar-orden/${id_Orden}`) Volver a Órdenes de Trabajo

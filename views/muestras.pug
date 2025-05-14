@@ -1,0 +1,96 @@
+extends layout
+
+block content
+  head 
+    title Buscar órdenes
+  body
+    .container
+      h1 Buscar Orden de Trabajo
+
+      // Formulario de búsqueda de paciente
+      form(action="/buscarOrdenes/ordenes" method="POST" id="searchForm")
+        .form-group
+          label(for="dniPaciente") Buscar Orden por DNI del Paciente:
+          input(type="text" name="dniPaciente" id="dniPaciente" placeholder="DNI del Paciente" class="form-control" required)
+
+        button(type="submit" class="btn btn-primary") Buscar
+
+      // Resultados de búsqueda de órdenes de trabajo
+      h2(id="resultHeading") Resultados:
+      #resultList
+        if ordenesTrabajo
+          each orden in ordenesTrabajo 
+            .card.mb-3(style="height: 300px;") // Añadiendo el height aquí
+              .card-body
+                ul.list-unstyled(id=`orden_${orden.id_Orden}`)
+                  li Órden de Trabajo: #{orden.id_Orden}
+                  li Id Paciente: #{orden.id_Paciente}
+                  li Fecha de Creación: #{orden.Fecha_Creacion.split('T')[0]}
+                  li Fecha de Entrega: #{orden.Fecha_Entrega.split('T')[0]}
+                  li Estado: #{orden.estado}
+                  li
+                    .d-flex
+                      // Botón para mostrar las muestras asociadas a la orden de trabajo
+                      a.btn.btn-primary(href=`muestras/mostrar/${orden.id_Orden}`) Mostrar Muestras
+
+    // Script para manejar la respuesta
+    script.
+      document.getElementById("searchForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const dniPaciente = document.getElementById("dniPaciente").value;
+        const resultHeading = document.getElementById("resultHeading");
+        const resultList = document.getElementById("resultList");
+
+        try {
+          const info = await fetch("/buscarOrdenes/ordenes", {  
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ dniPaciente }),
+          });
+
+          if (!info.ok) {
+            throw new Error(`HTTP error! Status: ${info.status}`);
+          }
+
+          const data = await info.json();
+          log(data);
+          resultList.innerHTML = ""; // Limpia el contenedor de la lista
+
+          if (data.length > 0) {
+            resultHeading.textContent = `Órdenes de trabajo asociadas al paciente con DNI: ${dniPaciente}`;
+
+            data.forEach((orden) => {
+              const fechaCreacion = orden.Fecha_Creacion.split('T')[0];
+              const fechaEntrega = orden.Fecha_Entrega.split('T')[0];
+
+              const listItem = document.createElement("div");
+              listItem.classList.add("card", "mb-3");
+              listItem.style.height = "200px"; // Añadiendo el height aquí
+              listItem.innerHTML = `
+                <div class="card-body">
+                  <ul class="list-unstyled" id="orden_${orden.id_Orden}">
+                    <li>Órden de Trabajo: ${orden.id_Orden}</li>
+                    <li>Id Paciente: ${orden.id_Paciente}</li>
+                    <li>Fecha de Creación: ${fechaCreacion}</li>
+                    <li>Fecha de Entrega: ${fechaEntrega}</li>
+                    <li>Estado: ${orden.estado}</li>
+                    <li>
+                      <div class="d-flex">
+                        <a class="btn btn-primary" href="muestras/mostrar/${orden.id_Orden}">Mostrar Muestras</a>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              `;
+              resultList.appendChild(listItem);
+            });
+          } else {
+            resultHeading.textContent = `No se encontraron órdenes de trabajo para el paciente con DNI ${dniPaciente}.`;
+          }
+        } catch (error) {
+          error('Error al buscar órdenes de trabajo:', error);
+          resultHeading.textContent = "Error al buscar órdenes de trabajo.";
+        }
+      });

@@ -1,0 +1,375 @@
+extends layout
+
+block content
+  head
+    title Gestión de Determinaciones
+
+  body
+    .container
+      h1 Gestión de Determinaciones
+
+      // Contenedor para mostrar mensajes de éxito o error
+      .alert#messageContainer(role="alert" style="display: none;")
+
+      // Mostrar el nombre del examen seleccionado
+      if idExamenSeleccionado && nombreExamenSeleccionado
+        .alert.alert-primary.mt-3
+          strong Examen seleccionado:
+          | #{nombreExamenSeleccionado}
+
+      // Selección de examen con búsqueda incremental
+      .form-group.mt-3
+        label(for="search_examen") Buscar Examen:
+        input#search_examen(type="text" class="form-control" placeholder="Escribe para buscar un examen..." autocomplete="off")
+        ul#examen_suggestions(class="list-group mt-2")
+
+      // Contenedor de determinaciones
+      .mt-4
+        h3#determinationTitle.hidden Deteminaciones para el examen seleccionado:
+        p#noDeterminations.hidden No existen determinaciones para el examen seleccionado.
+
+        // Tabla de determinaciones
+        table.table.table-bordered.hidden#determinationsTable
+          thead
+            tr
+              th Nombre de la Determinación
+              th Valor
+              th Unidad de Medida
+              th Sexo
+              th Estado
+              th Acción
+          tbody#determinationsBody
+
+      // Botón para agregar una nueva determinación
+      button.btn.btn-primary.hidden#addDetermination(type="button") Añadir Nueva Determinación
+
+      // Botón para guardar determinaciones
+      button.btn.btn-success.hidden#saveDeterminations(type="button") Guardar Determinaciones
+
+      // Modal de confirmación de guardado
+      .modal#confirmationModal(tabindex="-1" role="dialog" aria-hidden="true")
+        .modal-dialog(role="document")
+          .modal-content
+            .modal-header
+              h5.modal-title Confirmación de Datos
+              button.close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                span(aria-hidden="true") &times;
+            .modal-body
+              p#modalContent Aquí aparecerán los datos a enviar.
+            .modal-footer
+              button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+              button.btn.btn-primary(type="button" id="confirmSubmit") Confirmar
+
+      // Modal de confirmación para eliminación
+      .modal#deleteModal(tabindex="-1" role="dialog" aria-hidden="true")
+        .modal-dialog(role="document")
+          .modal-content
+            .modal-header
+              h5.modal-title Confirmar Eliminación
+              button.close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                span(aria-hidden="true") &times;
+            .modal-body
+              p#deleteContent ¿Estás seguro de que deseas eliminar esta determinación?
+            .modal-footer
+              button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+              button.btn.btn-danger(type="button" id="confirmDelete") Confirmar Eliminación
+
+    script.
+      // Datos cargados desde el servidor
+      const examenes = !{JSON.stringify(examenes)};
+      const determinaciones = !{JSON.stringify(determinaciones)};
+      const unidadesMedida = !{JSON.stringify(unidadesMedida)};
+      let idExamenSeleccionado = !{JSON.stringify(idExamenSeleccionado || null)};
+      const nombreExamenSeleccionado = !{JSON.stringify(nombreExamenSeleccionado || null)};
+
+      // Elementos del DOM
+      const searchInput = document.getElementById("search_examen");
+      const suggestionsList = document.getElementById("examen_suggestions");
+      const determinationTitle = document.getElementById("determinationTitle");
+      const noDeterminations = document.getElementById("noDeterminations");
+      const determinationsTable = document.getElementById("determinationsTable");
+      const determinationsBody = document.getElementById("determinationsBody");
+      const addDeterminationButton = document.getElementById("addDetermination");
+      const saveDeterminationsButton = document.getElementById("saveDeterminations");
+      const deleteModal = document.getElementById("deleteModal");
+      const deleteContent = document.getElementById("deleteContent");
+      const confirmDeleteButton = document.getElementById("confirmDelete");
+
+      // Contenedor para mensajes
+      const messageContainer = document.getElementById('messageContainer');
+
+      let currentUnits = []; // Mantiene las unidades filtradas por examen seleccionado
+      let currentDeterminations = []; // Determinaciones actuales del examen seleccionado
+      let determinationToDelete = null; // Mantiene la fila a eliminar
+
+      // Filtrar y mostrar sugerencias de exámenes
+      searchInput.addEventListener("input", () => {
+        const searchTerm = searchInput.value.toLowerCase();
+        suggestionsList.innerHTML = ""; // Limpiar sugerencias anteriores
+
+        if (searchTerm.trim() === "") return;
+
+        const filteredExams = examenes.filter(examen =>
+          examen.nombre_examen.toLowerCase().includes(searchTerm) ||
+          (examen.descripcion || "").toLowerCase().includes(searchTerm) ||
+          (examen.codigo || "").toLowerCase().includes(searchTerm)
+        );
+
+        filteredExams.forEach(examen => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <strong>${examen.nombre_examen}</strong><br>
+            <small>Descripción: ${examen.descripcion || 'Sin descripción'}</small><br>
+            <small>Código: ${examen.codigo || 'Sin código'}</small>
+          `;
+          li.dataset.id = examen.id_examen;
+          li.dataset.nombre = examen.nombre_examen;
+          li.className = "list-group-item list-group-item-action";
+          li.addEventListener("click", () => {
+            selectExamen(examen.id_examen, examen.nombre_examen);
+          });
+          suggestionsList.appendChild(li);
+        });
+      });
+
+      // Seleccionar un examen de las sugerencias
+      function selectExamen(idExamen, nombreExamen) {
+        searchInput.value = nombreExamen; // Mostrar el nombre en el input
+        suggestionsList.innerHTML = ""; // Limpiar sugerencias
+        updateDeterminations(idExamen); // Actualizar determinaciones
+      }
+
+      // Actualizar determinaciones según el examen seleccionado
+      function updateDeterminations(idExamen) {
+        const examenSeleccionado = examenes.find(e => e.id_examen == idExamen);
+        idExamenSeleccionado = examenSeleccionado.id_examen;
+        if (!examenSeleccionado) return;
+
+        const idTipoMuestra = examenSeleccionado.idTipoMuestra;
+
+        // Filtrar las unidades de medida por idTipoMuestra
+        currentUnits = unidadesMedida.filter(um => um.idTipoMuestra == idTipoMuestra);
+
+        // Filtrar determinaciones por examen seleccionado
+        currentDeterminations = determinaciones.filter(d => d.id_examen == idExamen);
+
+        // Actualizar el título
+        determinationTitle.textContent = `Determinaciones para el examen: ${examenSeleccionado.nombre_examen}`;
+        determinationTitle.classList.remove("hidden");
+
+        determinationsBody.innerHTML = "";
+
+        if (currentDeterminations.length === 0) {
+          noDeterminations.classList.remove("hidden");
+          determinationsTable.classList.add("hidden");
+          addDeterminationButton.classList.remove("hidden");
+          saveDeterminationsButton.classList.add("hidden");
+        } else {
+          noDeterminations.classList.add("hidden");
+          determinationsTable.classList.remove("hidden");
+          addDeterminationButton.classList.remove("hidden");
+          saveDeterminationsButton.classList.remove("hidden");
+
+          currentDeterminations.forEach(d => {
+            addDeterminationRow(d);
+          });
+        }
+      }
+
+      // Función para agregar una fila de determinación
+      function addDeterminationRow(determination = {}) {
+        const tr = document.createElement("tr");
+
+        const unidadOptions = currentUnits.map(um => `
+          <option value="${um.id_UnidadMedida}" ${um.id_UnidadMedida == determination.Unidad_Medida ? "selected" : ""}>
+            ${um.nombreUnidadMedida}
+          </option>
+        `).join("");
+
+        tr.dataset.id = determination.id_Determinacion || "";
+
+        tr.innerHTML = `
+          <td>
+            <input type="text" class="form-control" value="${determination.Nombre_Determinacion || ''}" name="Nombre_Determinacion" required>
+          </td>
+          <td>
+            <input type="number" step="0.01" class="form-control" value="${determination.Valor || ''}" name="Valor" required>
+          </td>
+          <td>
+            <select class="form-control" name="Unidad_Medida" required>
+              <option value="" disabled ${!determination.Unidad_Medida ? 'selected' : ''}>Selecciona una unidad</option>
+              ${unidadOptions}
+            </select>
+          </td>
+          <td>
+            <select class="form-control" name="Sexo" required>
+              <option value="" disabled ${!determination.Sexo ? 'selected' : ''}>Selecciona un sexo</option>
+              <option value="M" ${determination.Sexo === 'M' ? 'selected' : ''}>Masculino</option>
+              <option value="F" ${determination.Sexo === 'F' ? 'selected' : ''}>Femenino</option>
+              <option value="A" ${determination.Sexo === 'A' ? 'selected' : ''}>Ambos sexos</option>
+            </select>
+          </td>
+          <td>
+            <select class="form-control" name="estado" required>
+              <option value="" disabled ${determination.estado === undefined ? 'selected' : ''}>Selecciona un estado</option>
+              <option value="1" ${determination.estado === 1 ? 'selected' : ''}>Activo</option>
+              <option value="0" ${determination.estado === 0 ? 'selected' : ''}>Inactivo</option>
+            </select>
+          </td>
+          <td>
+            <button type="button" class="btn btn-danger btn-sm remove-determination">Eliminar</button>
+          </td>
+        `;
+
+        // Evento para el botón "Eliminar"
+        tr.querySelector(".remove-determination").addEventListener("click", () => {
+          if (tr.dataset.id) {
+            determinationToDelete = tr;
+            deleteContent.textContent = `¿Estás seguro de eliminar la determinación "${determination.Nombre_Determinacion}" para el examen seleccionado?`;
+            $('#deleteModal').modal('show');
+          } else {
+            tr.remove();
+          }
+        });
+
+        determinationsBody.appendChild(tr);
+      }
+
+      // Confirmar eliminación
+      confirmDeleteButton.addEventListener("click", async () => {
+        if (!determinationToDelete) return;
+
+        const idDeterminacion = determinationToDelete.dataset.id;
+
+        try {
+          const response = await fetch(`/determinacion/${idDeterminacion}`, {
+            method: "DELETE",
+          });
+
+          if (response.ok) {
+            determinationToDelete.remove();
+            determinationToDelete = null;
+            $('#deleteModal').modal('hide');
+
+            // Mostrar mensaje de éxito
+            messageContainer.classList.remove('alert-danger');
+            messageContainer.classList.add('alert-success');
+            messageContainer.textContent = 'Determinación eliminada con éxito.';
+            messageContainer.style.display = 'block';
+
+            // Opcional: ocultar tras 5s
+            setTimeout(() => {
+              messageContainer.style.display = 'none';
+            }, 5000);
+
+          } else {
+            // Error al eliminar
+            messageContainer.classList.remove('alert-success');
+            messageContainer.classList.add('alert-danger');
+            messageContainer.textContent = 'Error al eliminar la determinación.';
+            messageContainer.style.display = 'block';
+          }
+        } catch (error) {
+          console.error("Error al eliminar la determinación:", error);
+
+          messageContainer.classList.remove('alert-success');
+          messageContainer.classList.add('alert-danger');
+          messageContainer.textContent = 'Ocurrió un error al eliminar la determinación.';
+          messageContainer.style.display = 'block';
+        }
+      });
+
+      // Evento para agregar nueva fila
+      addDeterminationButton.addEventListener("click", () => {
+        addDeterminationRow();
+        noDeterminations.classList.add("hidden");
+        determinationsTable.classList.remove("hidden");
+        saveDeterminationsButton.classList.remove("hidden");
+      });
+
+      // Evento para guardar determinaciones con modal de confirmación
+      saveDeterminationsButton.addEventListener("click", () => {
+        const rows = determinationsBody.querySelectorAll("tr");
+        const determinacionesArray = Array.from(rows).map(row => ({
+          id_Determinacion: row.dataset.id || null,
+          Nombre_Determinacion: row.querySelector('[name="Nombre_Determinacion"]').value,
+          Valor: row.querySelector('[name="Valor"]').value,
+          Unidad_Medida: row.querySelector('[name="Unidad_Medida"]').value,
+          Sexo: row.querySelector('[name="Sexo"]').value,
+          estado: parseInt(row.querySelector('[name="estado"]').value, 10),
+        }));
+
+        const modalContent = determinacionesArray.map((det, index) => `
+          <strong>Determinación ${index + 1}:</strong><br>
+          Nombre: ${det.Nombre_Determinacion}<br>
+          Valor: ${det.Valor}<br>
+          Unidad de Medida: ${det.Unidad_Medida}<br>
+          Sexo: ${det.Sexo === 'A' ? 'Ambos sexos' : (det.Sexo === 'M' ? 'Masculino' : 'Femenino')}<br>
+          Estado: ${det.estado === 1 ? "Activo" : "Inactivo"}<br><br>
+        `).join("");
+
+        document.getElementById("modalContent").innerHTML = modalContent;
+
+        // Mostrar modal
+        $('#confirmationModal').modal('show');
+      });
+
+      // Confirmar y guardar datos
+      document.getElementById("confirmSubmit").addEventListener("click", async () => {
+        // Cerrar el modal automáticamente
+        $('#confirmationModal').modal('hide');
+
+        const rows = determinationsBody.querySelectorAll("tr");
+        const determinacionesArray = Array.from(rows).map(row => ({
+          id_Determinacion: row.dataset.id || null,
+          Nombre_Determinacion: row.querySelector('[name="Nombre_Determinacion"]').value,
+          Valor: row.querySelector('[name="Valor"]').value,
+          Unidad_Medida: row.querySelector('[name="Unidad_Medida"]').value,
+          Sexo: row.querySelector('[name="Sexo"]').value,
+          estado: parseInt(row.querySelector('[name="estado"]').value, 10),
+        }));
+
+        try {
+          const response = await fetch(`/determinacion/crear-determinacion/determinaciones`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id_examen: idExamenSeleccionado,
+              determinaciones: determinacionesArray
+            }),
+          });
+
+          if (response.ok) {
+            // Mensaje de éxito
+            messageContainer.classList.remove('alert-danger');
+            messageContainer.classList.add('alert-success');
+            messageContainer.textContent = 'Datos guardados y/o actualizados exitosamente';
+            messageContainer.style.display = 'block';
+
+            // Ocultar automáticamente tras 5 segundos (opcional)
+            setTimeout(() => {
+              messageContainer.style.display = 'none';
+            }, 5000);
+
+            // Si necesitas forzar recarga o refresco en la interfaz
+            // (Descomenta si usas idExamenSelect en tu código)
+            // idExamenSelect.dispatchEvent(new Event("change"));
+          } else {
+            // Error al guardar
+            messageContainer.classList.remove('alert-success');
+            messageContainer.classList.add('alert-danger');
+            messageContainer.textContent = 'Error al guardar las determinaciones.';
+            messageContainer.style.display = 'block';
+          }
+        } catch (error) {
+          console.error("Error al guardar las determinaciones:", error);
+
+          // Mostrar mensaje de error
+          messageContainer.classList.remove('alert-success');
+          messageContainer.classList.add('alert-danger');
+          messageContainer.textContent = 'Ocurrió un error al guardar las determinaciones.';
+          messageContainer.style.display = 'block';
+        }
+      });

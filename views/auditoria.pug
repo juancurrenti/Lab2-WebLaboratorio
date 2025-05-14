@@ -1,0 +1,125 @@
+extends layout
+
+block content
+  head
+    title Auditorías
+
+  div.container.margin-top-custom
+    h1 Auditorías
+
+    //- Filtro por búsqueda
+    .form-group
+      label(for="descripcion") Buscar por descripción
+      input#descripcion.form-control(type="text", placeholder="Escribe una descripción...")
+
+    .form-group
+      label(for="usuario") Filtrar por usuario
+      input#usuario.form-control(type="text", placeholder="Escribe el nombre o email del usuario...")
+
+    .form-group
+      label(for="fecha") Filtrar por fecha
+      input#fecha.form-control(type="date")
+
+    //- Tabla para mostrar las auditorías
+    table.table.table-striped
+      thead
+        tr
+          th Fecha y Hora
+          th Usuario
+          th Correo Electrónico
+          th Operación
+          th Detalles
+      tbody#tabla-auditorias
+        //- Las filas se llenan dinámicamente con JavaScript
+
+    //- Paginación
+    nav#paginacion
+      ul.pagination
+        //- Las páginas se llenan dinámicamente con JavaScript
+
+    //- Mensaje para errores o advertencias
+    div#mensaje
+
+    //- Incluye la librería Axios
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
+
+    //- Script para búsqueda y paginación dinámica
+    script.
+      document.addEventListener('DOMContentLoaded', function() {
+        const descripcionInput = document.getElementById('descripcion');
+        const usuarioInput = document.getElementById('usuario');
+        const fechaInput = document.getElementById('fecha');
+        const tablaAuditorias = document.getElementById('tabla-auditorias');
+        const paginacion = document.getElementById('paginacion');
+        const mensaje = document.getElementById('mensaje');
+
+        let currentPage = 1;
+
+        const fetchAuditorias = async () => {
+          try {
+            const descripcion = descripcionInput.value.trim();
+            const usuario = usuarioInput.value.trim();
+            const fecha = fechaInput.value;
+
+            const response = await axios.get('/admin/auditoria', {
+              params: { descripcion, usuario, fecha, page: currentPage }
+            });
+
+            const { auditorias, totalPages } = response.data;
+
+            // Actualiza la tabla
+            tablaAuditorias.innerHTML = auditorias.map(auditoria => `
+              <tr>
+                <td>${new Date(auditoria.Fecha_Hora_Operacion).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                <td>${auditoria.Usuario ? auditoria.Usuario.nombre_usuario : 'Desconocido'}</td>
+                <td>${auditoria.Usuario ? auditoria.Usuario.correo_electronico : 'Desconocido'}</td>
+                <td>${auditoria.Operacion_Realizada}</td>
+                <td>${auditoria.Detalles_Adicionales || 'No disponible'}</td>
+              </tr>
+            `).join('');
+
+            // Actualiza la paginación
+            paginacion.innerHTML = '';
+            if (totalPages > 1) {
+              const ul = document.createElement('ul');
+              ul.className = 'pagination';
+
+              for (let page = 1; page <= totalPages; page++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${page === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#">${page}</a>`;
+                li.addEventListener('click', () => {
+                  currentPage = page;
+                  fetchAuditorias();
+                });
+                ul.appendChild(li);
+              }
+
+              paginacion.appendChild(ul);
+            }
+
+            mensaje.innerHTML = ''; // Limpia los mensajes
+          } catch (error) {
+            mensaje.innerHTML = 'Ocurrió un error al buscar las auditorías.';
+          }
+        };
+
+        // Listeners para búsqueda en tiempo real
+        descripcionInput.addEventListener('input', () => {
+          currentPage = 1; // Reinicia la paginación al buscar
+          fetchAuditorias();
+        });
+
+        usuarioInput.addEventListener('input', () => {
+          currentPage = 1; // Reinicia la paginación al buscar
+          fetchAuditorias();
+        });
+
+        fechaInput.addEventListener('change', () => {
+          currentPage = 1; // Reinicia la paginación al buscar
+          fetchAuditorias();
+        });
+
+        // Carga inicial
+        fetchAuditorias();
+      });

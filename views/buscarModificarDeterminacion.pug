@@ -1,0 +1,54 @@
+extends layout
+
+block content
+  head
+    title Buscar y Modificar Determinación
+
+  .container
+    h1(class="margin-top-custom") Buscar y Modificar Determinación
+
+    // Formulario de búsqueda por código o nombre del examen
+    form(action="/modificar-determinacion/buscar-determinacion" method="post" class="mt-4")
+      div.form-group
+        label(for="codigo") Código del Examen:
+        input(type="text" name="codigo" class="form-control")
+      div.form-group
+        label(for="nombre_examen") Nombre del Examen:
+        input(type="text" name="nombre_examen" class="form-control")
+      button(type="submit" class="btn btn-primary") Buscar Determinaciones
+
+    // Mostrar resultados de búsqueda si los hay
+    if determinacionesEncontradas
+      h2(class="mt-4") Determinaciones Encontradas
+      table.table.table-striped
+        thead
+          tr
+            th ID
+            th Nombre
+            th Valor
+            th Unidad de Medida
+            th Sexo
+            th Estado
+            th Acciones
+        tbody
+          each determinacion in determinacionesEncontradas
+            tr
+              td= determinacion.id_Determinacion
+              td= determinacion.Nombre_Determinacion
+              td= determinacion.Valor
+              td= determinacion.Unidad_Medida
+              td= determinacion.Sexo
+              td= determinacion.estado ? 'Activa' : 'Inactiva'
+              td
+                // Formulario para modificar estado
+                form(action="/modificar-determinacion/modificar-estado" method="post")
+                  input(type="hidden" name="id_Determinacion" value=determinacion.id_Determinacion)
+                  div.form-group
+                    label(for="estado") Modificar Estado:
+                    select(name="estado" class="form-control")
+                      option(value="1", selected=determinacion.estado === 1) Activo
+                      option(value="0", selected=determinacion.estado === 0) Inactivo
+                  button(type="submit" class="btn btn-primary" onclick="return confirm('¿Estás seguro de modificar la determinacion?')") Cambiar Estado
+
+    else
+      p(class="mt-4") No se encontraron determinaciones para los criterios proporcionados.

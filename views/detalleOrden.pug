@@ -1,0 +1,118 @@
+extends layout
+
+block content
+  // Incluir Bootstrap CSS
+  title Detalle de Orden #{ordenes[0].id_Orden}
+  link(rel='stylesheet', href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css')
+
+  .container
+    .report-container
+      .header
+        link(rel='stylesheet', href='/public/css/style.css')
+
+        .header-content
+          .logo
+            img(src='/public/img/medico.avif' alt='Logo' style='max-height: 100px; width: auto;')
+          .lab-info
+            h2 Medical HealthCare
+            p Calle Bolivar 762, Tel: 54 (266) 4792991
+            p San Luis, Argentina
+
+      .order-info
+        h3 LABORATORIO DE ANÁLISIS CLÍNICOS
+        if ordenes && ordenes.length
+          .order-details
+            p Número de Orden: #{ordenes[0].id_Orden}
+            p Fecha de Creación: #{ordenes[0].Fecha_Creacion}
+            p Fecha de Entrega: #{ordenes[0].Fecha_Entrega}
+            p Estado de la Orden: #{ordenes[0].estado}
+
+          h4 Información del Paciente
+          .patient-info
+            p Nombre: #{ordenes[0].nombre} #{ordenes[0].apellido}
+            p DNI: #{ordenes[0].dni}
+            p Email: #{ordenes[0].email}
+            p Teléfono: #{ordenes[0].telefono}
+            p Dirección: #{ordenes[0].direccion}
+            p Fecha de Nacimiento: #{ordenes[0].fecha_nacimiento}
+            p Edad: #{ordenes[0].edad} Años
+            p Embarazo: #{ordenes[0].embarazo ? 'Sí' : 'No'}
+            p Diagnóstico: #{ordenes[0].diagnostico}
+        else
+          p No se encontró información del paciente.
+
+      .report-details.margin-top-custom
+        h4 Resultados de la Orden
+        if ordenes && ordenes.length && ordenes[0].muestras && ordenes[0].muestras.length
+          table.result-table
+            thead
+              tr
+                th Determinación
+                th Valor Final
+                th Valor de Referencia Mínimo
+                th Valor de Referencia Máximo
+                th Rango de Edad (Referencia)
+                th Sexo 
+                th Fecha Resultado
+                th Edad del Paciente
+            tbody
+              each muestra in ordenes[0].muestras
+                - const valorFinalNumerico = parseFloat(muestra.valor_final.replace(/[^\d.-]/g, '')) || 0;
+                - const valorMaximoNumerico = parseFloat(muestra.Valor_Referencia_Maximo.replace(/[^\d.-]/g, '')) || 0;
+                tr
+                  td #{muestra.Nombre_Determinacion || 'N/A'}
+                  if valorFinalNumerico > valorMaximoNumerico
+                    td(style='color:red; font-weight:bold' ) #{muestra.valor_final || 'N/A'}
+                  else
+                    td #{muestra.valor_final || 'N/A'}
+                  td #{muestra.Valor_Referencia_Minimo || 'N/A'}
+                  td #{muestra.Valor_Referencia_Maximo || 'N/A'}
+                  td #{muestra.Edad_Minima || 'N/A'} - #{muestra.Edad_Maxima || 'N/A'}
+                  td #{muestra.Sexo || 'N/A'}
+                  td #{muestra.fecha_resultado || 'N/A'}
+                  td #{muestra.edad || 'N/A'}
+        else
+          p No se encontraron resultados para las muestras.
+
+      .content-footer.margin-top-custom
+        p A T E N T A M E N T E
+        p #{usuarioLogueado || 'Desconocido'}
+        p Responsable Sanitario
+
+    // Botón para informar el estado de la orden
+    .text-center
+      form(action=`/muestras/actualizarEstadoOrden/${ordenes[0].id_Orden}/informada`, method='POST')
+        button.btn.btn-success.btn-lg(type="submit") Marcar como Informada
+
+    // Botón para generar e imprimir el PDF con estilos de Bootstrap
+    .text-center
+      button(type='button' class='btn btn-primary' id='printButton') Imprimir PDF
+
+  // Incluir la librería html2pdf.js
+  script(src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js')
+  script.
+    document.getElementById('printButton').addEventListener('click', function() {
+      const element = document.querySelector('.report-container');
+      if (!element) {
+        error('El elemento .report-container no se encontró');
+        return;
+      }
+
+      const pacienteNombreElement = document.querySelector('.patient-info p');
+      const pacienteNombre = pacienteNombreElement ? pacienteNombreElement.textContent.split(' ')[1] : 'Paciente';
+
+      const opt = {
+        margin: [5, 5, 5, 5], // Márgenes reducidos para ajuste máximo
+        filename: `reporte_${pacienteNombre}.pdf`, // Nombre del archivo con el nombre del paciente
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1, useCORS: true }, // Aumentar la escala para mejor calidad
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).toPdf().get('pdf').then(function(pdf) {
+        pdf.autoPrint();
+        window.open(pdf.output('bloburl'), '_blank'); // Abrir en una nueva pestaña
+      }).catch(function(error) {
+        error('Error generando el PDF:', error);
+      });
+    });

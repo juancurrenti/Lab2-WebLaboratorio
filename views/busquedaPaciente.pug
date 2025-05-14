@@ -1,0 +1,88 @@
+extends layout
+
+block content
+  head
+    title Buscar Paciente por DNI, Apellido o Email
+  body
+    .container
+      h2#titulo Buscar Paciente
+
+      .form-group
+        label(for="searchTerm") Buscar Paciente (DNI, Apellido, Email, Teléfono)
+        input#searchTerm(type="text" class="form-control" placeholder="Ingresa información para buscar")
+
+      ul#dropdown-menu(class="dropdown-menu", style="display: none; position: relative;")
+
+      button#verPacienteBtn(type="button" class="btn btn-primary" disabled style="margin-top: 10px;") Ver Paciente Seleccionado
+
+      p(style="margin-top: 20px;") Ingresar nuevo paciente
+      button#nuevoPacienteBtn(type="button" class="btn btn-success") Ingresar Nuevo Paciente
+
+      p#mensaje(style="color: #ff4040; margin-top: 10px;")
+    
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
+
+    script.
+      document.addEventListener('DOMContentLoaded', function () {
+        const searchTermInput = document.getElementById('searchTerm');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const verPacienteBtn = document.getElementById('verPacienteBtn');
+        const nuevoPacienteBtn = document.getElementById('nuevoPacienteBtn');
+        let selectedPaciente = null;
+
+        // Función para buscar pacientes dinámicamente
+        const buscarPacientes = async (query) => {
+          try {
+            if (!query) {
+              dropdownMenu.style.display = 'none';
+              return;
+            }
+
+            const response = await axios.get('/buscar-paciente-dinamico', { params: { query } });
+            const pacientes = response.data;
+
+            dropdownMenu.innerHTML = ''; // Limpia el menú
+            if (pacientes.length > 0) {
+              dropdownMenu.style.display = 'block';
+              pacientes.forEach((paciente) => {
+                const li = document.createElement('li');
+                li.className = 'dropdown-item';
+                li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni} - Email: ${paciente.email} - Teléfono: ${paciente.telefono}`;
+                li.dataset.pacienteId = paciente.id_paciente;
+                li.addEventListener('click', () => seleccionarPaciente(paciente));
+                dropdownMenu.appendChild(li);
+              });
+            } else {
+              dropdownMenu.style.display = 'none';
+            }
+          } catch (error) {
+            console.error('Error al buscar pacientes:', error);
+          }
+        };
+
+        // Función para seleccionar un paciente del menú
+        const seleccionarPaciente = (paciente) => {
+          selectedPaciente = paciente;
+          verPacienteBtn.disabled = false; // Habilita el botón de "Ver Paciente Seleccionado"
+          dropdownMenu.style.display = 'none'; // Oculta el menú
+          searchTermInput.value = `${paciente.nombre} ${paciente.apellido}`; // Muestra el nombre en el campo de búsqueda
+        };
+
+        // Listener para buscar mientras el usuario escribe
+        searchTermInput.addEventListener('input', (e) => {
+          const query = e.target.value.trim();
+          buscarPacientes(query);
+        });
+
+        // Listener para el botón de "Ver Paciente Seleccionado"
+        verPacienteBtn.addEventListener('click', () => {
+          if (selectedPaciente) {
+            window.location.href = `/editar-paciente/${selectedPaciente.id_paciente}`;
+          }
+        });
+
+        // Listener para "Ingresar Nuevo Paciente"
+        nuevoPacienteBtn.addEventListener('click', () => {
+          window.location.href = '/ingresar-paciente';
+        });
+      });

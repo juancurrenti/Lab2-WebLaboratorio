@@ -1,0 +1,75 @@
+extends layout
+
+block content
+  head
+    title Buscar y Modificar Valores de Referencia
+
+  div.container.margin-top-custom
+    h1 Buscar y Modificar Valores de Referencia
+
+    form(action="/buscar-valores/buscar-valores-referencia" method="post" class="mb-4")
+      div.form-group
+        label(for="id_Determinacion") Determinación:
+        select(name="id_Determinacion", required, class="form-control")
+          if determinaciones && determinaciones.length > 0
+            each determinacion in determinaciones
+              option(value=determinacion.id_Determinacion) #{determinacion.Nombre_Determinacion}
+          else
+            option(value="", disabled) No hay determinaciones disponibles
+      button(type="submit" class="btn btn-primary") Buscar Valores de Referencia
+
+    if valoresReferenciaEncontrados
+      h2 Valores de Referencia Encontrados
+      table.table.table-bordered.table-hover
+        thead
+          tr
+            th ID Valor Referencia
+            th Edad Mínima
+            th Edad Máxima
+            th Sexo
+            th Valor Mínimo
+            th Valor Máximo
+            th Estado
+            th Acciones
+        tbody
+          each valorReferencia in valoresReferenciaEncontrados
+            tr
+              td= valorReferencia.id_ValorReferencia
+              td= valorReferencia.Edad_Minima
+              td= valorReferencia.Edad_Maxima
+              td= valorReferencia.Sexo
+              td= valorReferencia.Valor_Referencia_Minimo
+              td= valorReferencia.Valor_Referencia_Maximo
+              td= valorReferencia.estado ? 'Activo' : 'Inactivo'
+              td
+                a.btn.btn-primary(href=`/buscar-valores/crear-modificar-valores-referencia/${valorReferencia.id_ValorReferencia}`)
+                  | Modificar
+
+      h2 Agregar Nuevo Valor de Referencia
+      form(action="/buscar-valores/agregar-nuevo-valor-referencia" method="post")
+        input(type="hidden" name="id_Determinacion" value=determinacionSeleccionada)
+        div.form-group
+          label(for="Edad_Minima") Edad Mínima:
+          input(type="number" name="Edad_Minima" required class="form-control")
+        div.form-group
+          label(for="Edad_Maxima") Edad Máxima:
+          input(type="number" name="Edad_Maxima" required class="form-control")
+        div.form-group
+          label(for="Sexo") Sexo:
+          select(name="Sexo" required class="form-control")
+            option(value="M") Masculino
+            option(value="F") Femenino
+        div.form-group
+          label(for="Valor_Referencia_Minimo") Valor Mínimo:
+          input(type="number" step="0.01" name="Valor_Referencia_Minimo" required class="form-control")
+        div.form-group
+          label(for="Valor_Referencia_Maximo") Valor Máximo:
+          input(type="number" step="0.01" name="Valor_Referencia_Maximo" required class="form-control")
+        div.form-group
+          label(for="estado") Estado:
+          select(name="estado" required class="form-control")
+            option(value="1") Activo
+            option(value="0") Inactivo
+        button(type="submit" class="btn btn-primary") Agregar Nuevo Valor de Referencia
+    else
+      p No se encontraron valores de referencia para la determinación proporcionada.

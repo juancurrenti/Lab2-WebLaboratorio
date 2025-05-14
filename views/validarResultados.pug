@@ -1,0 +1,76 @@
+extends layout
+
+block content
+  title Validar Resultados
+  .container
+    h1.text-center.mt-4 Validar Resultados
+
+    if orden && orden.length > 0
+      .row
+        .col-lg-12
+          h2 Orden: #{orden[0].OrdenID} - Paciente: #{orden[0].NombrePaciente} #{orden[0].ApellidoPaciente}
+          p Edad: #{orden[0].EdadPaciente} años | Género: #{orden[0].SexoPaciente}
+
+      // Tabla principal con resultados
+      table.table.table-striped
+        thead
+          tr
+            th Examen
+            th Determinación
+            th Unidad de Medida
+            th Valor de Referencia
+            th Género del Valor de Referencia
+            th Resultado
+        tbody
+          each item in orden
+            tr
+              td= item.NombreExamen
+              td= item.NombreDeterminacion
+              td= item.UnidadMedidaDeterminacion
+              td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
+              td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino' 
+              td
+                input.form-control(type="text" name=`resultado_${item.DeterminacionID}` value=item.ResultadoValor readonly )
+
+      // Botón para abrir el modal de confirmación
+      .mt-4
+        button.btn.btn-success(type="button" data-bs-toggle="modal" data-bs-target="#confirmModal") Informar Orden
+        a.btn.btn-primary.ms-2(href=`http://localhost:3000/registrarResultados/${orden[0].OrdenID}`) Modificar Resultados
+
+      // Modal de confirmación
+      .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
+        .modal-dialog.modal-lg
+          .modal-content
+            .modal-header
+              h5.modal-title#confirmModalLabel Confirmar Información
+              button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+            .modal-body
+              h5.text-center.mb-3 ¿Estás seguro de informar la orden del paciente?
+              p.text-center.mb-3 Paciente: #{orden[0].NombrePaciente} #{orden[0].ApellidoPaciente} | Edad: #{orden[0].EdadPaciente} años | Género: #{orden[0].SexoPaciente}
+              table.table.table-striped
+                thead
+                  tr
+                    th Examen
+                    th Determinación
+                    th Unidad de Medida
+                    th Valor de Referencia
+                    th Género del Valor de Referencia
+                    th Resultado
+                tbody
+                  each item in orden
+                    tr
+                      td= item.NombreExamen
+                      td= item.NombreDeterminacion
+                      td= item.UnidadMedidaDeterminacion
+                      td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
+                      td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino' 
+                      td= item.ResultadoValor
+            .modal-footer
+              form(method="POST" action="/confirmarValidacion")
+                input(type="hidden" name="idOrden" value=orden[0].OrdenID)
+                button.btn.btn-success(type="submit") Confirmar Validación
+              button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+    else
+      .row
+        .col-lg-12.text-center
+          p.text-muted No se encontraron resultados para esta orden.

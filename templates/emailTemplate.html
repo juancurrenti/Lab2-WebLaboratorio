@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        /* Estilos compatibles con clientes de email */
+        .main-table {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .header {
+            background-color: #007bff;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .logo {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .content {
+            padding: 30px 20px;
+            background-color: #f8f9fa;
+        }
+
+        .credentials-box {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
+            background-color: #007bff;
+            color: white !important;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .footer {
+            background-color: #343a40;
+            padding: 20px;
+            text-align: center;
+            color: #ffffff;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <table class="main-table">
+        <!-- Encabezado -->
+        <tr>
+            <td class="header">
+                <div class="logo">Laboratorio Clínico La Punta</div>
+            </td>
+        </tr>
+
+        <!-- Contenido -->
+        <tr>
+            <td class="content">
+                <table width="100%">
+                    <tr>
+                        <td>
+                            <h2 style="color: #2c3e50; margin-top: 0;">¡Bienvenido/a! ${nombre} ${apellido}</h2>
+                            <p style="color: #6c757d;">Aquí tienes tus credenciales de acceso:</p>
+
+                            <div class="credentials-box">
+                                <table width="100%">
+                                    <tr>
+                                        <td width="30%"><strong>Usuario:</strong></td>
+                                        <td style="color: #007bff;">${email}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Contraseña:</strong></td>
+                                        <td style="color: #007bff;">${dni}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <p style="text-align: center; margin: 30px 0;">
+                                <a href="http://localhost:3000/login" class="button">Acceder a la WEB</a>
+                            </p>
+
+                            <p style="color: #6c757d; font-size: 14px;">
+                                🔒 Por tu seguridad, te recomendamos:<br>
+                                1. Cambiar tu contraseña<br>
+                                2. No compartir estas credenciales
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Pie de página -->
+        <tr>
+            <td class="footer">
+                <p style="margin: 5px 0;">© 2023 Laboratorio Clínico La Punta</p>
+                <p style="margin: 5px 0; font-size: 11px; color: #dee2e6;">
+                    Este mensaje es confidencial y está dirigido exclusivamente al destinatario indicado.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

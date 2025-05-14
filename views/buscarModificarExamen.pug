@@ -1,0 +1,166 @@
+extends layout
+
+block content
+  head
+    title Buscar y Modificar Examen
+    link(href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet")
+    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js")
+
+  div.container
+    h1 Buscar y Modificar Examen
+
+    // Formulario de búsqueda
+    div.form-group
+      label(for="buscar_examen") Buscar Examen:
+      input#buscar_examen(type="text" class="form-control" placeholder="Escribe para buscar..." autocomplete="off")
+
+      // Resultados de búsqueda
+      div#resultados_busqueda(style="position: absolute; z-index: 1000; display: none;")
+        ul#lista_resultados(style="list-style: none; padding: 0; margin: 0;")
+          each examen in examenes
+            li(class="resultado" 
+              data-id=examen.id_examen 
+              data-nombre=examen.nombre_examen 
+              data-descripcion=examen.descripcion 
+              data-codigo=examen.codigo 
+              data-estado=examen.estado 
+              data-tipo=examen.idTipoMuestra 
+              data-tiempo=examen.tiempoDemora)
+              | #{examen.nombre_examen} (#{examen.codigo})
+
+    // Formulario de modificación
+    form#form_modificar_examen(style="display: none;" action="/modificar-examen/modificar" method="post")
+      input(type="hidden" name="id_examen" id="id_examen")
+      
+      div.form-group
+        label(for="nombre_examen") Nombre del Examen:
+        input#nombre_examen(type="text" name="nombre_examen" class="form-control" required)
+
+      div.form-group
+        label(for="descripcion") Descripción del Examen:
+        textarea#descripcion(name="descripcion" rows="3" class="form-control" required)
+
+      div.form-group
+        label(for="codigo") Código del Examen:
+        input#codigo(type="text" name="codigo" class="form-control" required)
+
+      div.form-group
+        label(for="estado") Estado:
+        select#estado(name="estado" class="form-control" required)
+          option(value="1", selected=examen && examen.estado==1) Activo
+          option(value="0", selected=examen && examen.estado==0) Inactivo
+
+      div.form-group
+        label(for="tipo_muestra") Tipo de Muestra:
+        select#tipo_muestra(name="tipo_muestra" class="form-control" required)
+          each tipo in tiposMuestra
+            option(value=tipo.idTipoMuestra) #{tipo.tipoDeMuestra}
+
+      div.form-group
+        label(for="tiempo_demora") Tiempo de Demora (días):
+        input#tiempo_demora(type="number" name="tiempo_demora" class="form-control" min="0" required)
+
+      button.btn.btn-success.mt-2#guardar_examen(type="button") Guardar Cambios
+
+    // Modal de Confirmación
+    .modal#confirmationModal(tabindex="-1" role="dialog")
+      .modal-dialog(role="document")
+        .modal-content
+          .modal-header
+            h5.modal-title Confirmación de Datos
+            button.close(type="button" data-bs-dismiss="modal" aria-label="Close")
+              span(aria-hidden="true") &times;
+          .modal-body
+            p#modalContent Aquí aparecerán los datos a enviar.
+          .modal-footer
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-primary(type="submit" id="confirmSubmit") Confirmar
+
+    script.
+      $(document).ready(function() {
+        const examenes = !{JSON.stringify(examenes)};
+        let examenSeleccionado = null;
+
+        // Buscar exámenes
+        $('#buscar_examen').on('input', function() {
+          const query = $(this).val().toLowerCase();
+          $('#lista_resultados').empty();
+
+          if (query.length > 0) {
+            examenes.forEach(examen => {
+              if (examen.nombre_examen.toLowerCase().includes(query) || examen.codigo.toLowerCase().includes(query)) {
+                $('#lista_resultados').append(`<li class="resultado" 
+                  data-id="${examen.id_examen}" 
+                  data-nombre="${examen.nombre_examen}" 
+                  data-descripcion="${examen.descripcion}" 
+                  data-codigo="${examen.codigo}" 
+                  data-estado="${examen.estado}" 
+                  data-tipo="${examen.idTipoMuestra}" 
+                  data-tiempo="${examen.tiempoDemora}">
+                  ${examen.nombre_examen} (${examen.codigo})
+                </li>`);
+              }
+            });
+
+            $('#resultados_busqueda').show();
+          } else {
+            $('#resultados_busqueda').hide();
+          }
+        });
+
+        // Seleccionar examen
+        $(document).on('click', '.resultado', function() {
+          const id = $(this).data('id');
+          const nombre = $(this).data('nombre');
+          const descripcion = $(this).data('descripcion');
+          const codigo = $(this).data('codigo');
+          const estado = $(this).data("estado");
+          const tipoMuestra = $(this).data('tipo');
+          const tiempoDemora = $(this).data('tiempo');
+
+          // Rellenar el formulario con los datos del examen seleccionado
+          $('#id_examen').val(id);
+          $('#nombre_examen').val(nombre.trim());
+          $('#descripcion').val(descripcion.trim());
+          $('#codigo').val(codigo.trim());
+          $('#estado').val(estado ? '1' : '0'); 
+          $('#tipo_muestra').val(tipoMuestra);
+          $('#tiempo_demora').val(tiempoDemora);
+
+          $('#form_modificar_examen').show();
+          $('#resultados_busqueda').hide();
+        });
+
+        // Guardar examen
+        $('#guardar_examen').on('click', function() {
+          const nombre = $('#nombre_examen').val();
+          const descripcion = $('#descripcion').val();
+          const codigo = $('#codigo').val();
+          const estado = $('#estado option:selected').text();
+          const tipoMuestra = $('#tipo_muestra option:selected').text();
+          const tiempoDemora = $('#tiempo_demora').val();
+
+          // Mostrar datos en el modal
+          $('#modalContent').html(`            
+            <strong>Nombre:</strong> ${nombre}<br>
+            <strong>Descripción:</strong> ${descripcion}<br>
+            <strong>Código:</strong> ${codigo}<br>
+            <strong>Estado:</strong> ${estado}<br>
+            <strong>Tipo de Muestra:</strong> ${tipoMuestra}<br>
+            <strong>Tiempo de Demora:</strong> ${tiempoDemora} días<br>
+          `);
+
+          const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+          modal.show();
+
+          // Confirmar envío
+          $('#confirmSubmit').off('click').on('click', function() {
+            $('#form_modificar_examen').submit();
+          });
+        });
+          $('#form_modificar_examen').on('submit', function(event) {
+            event.preventDefault();
+            alert('Examen actualizado con exito');
+            this.submit();
+          });
+      });

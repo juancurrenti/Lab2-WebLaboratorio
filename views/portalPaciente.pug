@@ -1,0 +1,54 @@
+extends layout
+
+block content
+  title Portal Paciente
+  .container
+    .text-end.mb-4
+      a.btn.btn-info(href="/portal-paciente/editar") 
+        i.fas.fa-edit.me-2
+        | Editar mis datos
+
+    h1.text-center.mt-4 Órdenes Informadas
+
+    if ordenes && ordenes.length > 0
+      table.table.table-striped.mt-4
+        thead
+          tr
+            th #ID Orden
+            th Fecha Creación
+            th Fecha Entrega
+            th Acciones
+        tbody
+          each orden in ordenes
+            tr
+              td= orden.OrdenID
+              td= orden.FechaCreacion || "No disponible"
+              td= orden.FechaEntrega || "No disponible"
+              td
+                a.btn.btn-secondary.ms-2(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
+    else
+      .row
+        .col-lg-12.text-center
+          p.text-muted No hay órdenes con estado "Informada" disponibles.
+  
+    .config-section.mt-5
+      hr
+      .row.g-3.justify-content-center
+        .col-md-3.col-sm-6
+          // Enlace de logout modificado para disparar el modal
+          a.btn.btn-outline-danger.btn-lg.w-100(href="#", data-bs-toggle="modal", data-bs-target="#logoutModal")
+            i.fas.fa-sign-out-alt.me-2
+            | Salir
+
+    // Modal para confirmar cierre de sesión
+    .modal.fade#logoutModal(tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true")
+      .modal-dialog
+        .modal-content
+          .modal-header
+            h5#logoutModalLabel.modal-title Confirmar Cierre de Sesión
+            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+          .modal-body
+            p ¿Estás seguro de que deseas cerrar sesión?
+          .modal-footer
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            a.btn.btn-danger(href="/logout") Confirmar

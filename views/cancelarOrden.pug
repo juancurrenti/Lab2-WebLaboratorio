@@ -1,0 +1,14 @@
+extends layout
+block content
+  head
+    title Cancelar Orden de Trabajo
+  body
+    nav.navbar.navbar-expand-lg.navbar-light.bg-light
+
+    div.container
+      h1(class="mt-4") Cancelar Orden de Trabajo
+      form(action=`/buscarOrdenes/cancelar-orden/${ordenTrabajoExistente.id_Orden}`, method="POST" class="mt-4")
+        div.form-group
+          label(for="razonCancelacion") Razón de Cancelación:
+          input(type="text" name="razonCancelacion" class="form-control", required)
+        button(type="submit" class="btn btn-danger" onclick="return confirm('¿Estás seguro de cancelar la orden?')") Cancelar Orden

@@ -1,0 +1,34 @@
+extends layout
+
+block content
+  title Ordenes informadas
+  .container
+    h1.text-center.mt-4 Órdenes Informadas
+
+    if ordenes && ordenes.length > 0
+      table.table.table-striped.mt-4
+        thead
+          tr
+            th #ID Orden
+            th Fecha Creación
+            th Fecha Entrega
+            th Nombre del Paciente
+            th Apellido del Paciente
+            th DNI
+            th Acciones
+        tbody
+          each orden in ordenes
+            tr
+              td= orden.OrdenID
+              td= orden.FechaCreacion || "No disponible"
+              td= orden.FechaEntrega || "No disponible"
+              td= orden.NombrePaciente
+              td= orden.ApellidoPaciente
+              td= orden.DNIPaciente
+              td
+                a.btn.btn-primary(href=`/registrarResultados/${orden.OrdenID}`) Modificar
+                a.btn.btn-secondary.ms-2(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
+    else
+      .row
+        .col-lg-12.text-center
+          p.text-muted No hay órdenes con estado "Informada" disponibles.

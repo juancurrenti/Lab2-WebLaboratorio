@@ -1,0 +1,102 @@
+extends layout
+
+block content
+  title Registrar Resultados
+  .container
+    h1.text-center.mt-4 Registrar Resultados
+
+    if orden && orden.length > 0
+      .row
+        .col-lg-12
+          h2 Orden: #{orden[0].OrdenID} - Paciente: #{orden[0].NombrePaciente} #{orden[0].ApellidoPaciente}
+          p Edad: #{orden[0].EdadPaciente} años | Género: #{orden[0].SexoPaciente}
+
+      form(method="POST" action="/registrarResultados" id="registrarResultadosForm" class="mt-4")
+        input(type="hidden" name="idOrden" value=orden[0].OrdenID)
+        table.table.table-striped
+          thead
+            tr
+              th Examen
+              th Determinación
+              th Unidad de Medida
+              th Valor de Referencia
+              th Género del Valor de Referencia
+              th Resultado
+          tbody
+            each item in orden
+              tr
+                td= item.NombreExamen
+                td= item.NombreDeterminacion
+                td= item.UnidadMedidaDeterminacion
+                td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
+                td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino'
+                td
+                  input.form-control(
+                    type="text" 
+                    name=`resultado_${item.DeterminacionID}` 
+                    placeholder="Ingrese resultado" 
+                    value=item.ResultadoValor || ""
+                    data-determinacion=item.NombreDeterminacion
+                    data-examen=item.NombreExamen
+                    data-unidad=item.UnidadMedidaDeterminacion
+                  )
+                  input(type="hidden" name=`unidad_${item.DeterminacionID}` value=item.UnidadMedidaDeterminacion)
+        button.btn.btn-primary.mt-3(type="button" data-bs-toggle="modal" data-bs-target="#confirmModal") Guardar Resultados
+
+      // Modal de confirmación
+      .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
+        .modal-dialog.modal-lg
+          .modal-content
+            .modal-header
+              h5.modal-title#confirmModalLabel Confirmar Envío de Resultados
+              button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+            .modal-body
+              p Confirme los resultados que se enviarán para la orden:
+              table.table.table-striped
+                thead
+                  tr
+                    th Examen
+                    th Determinación
+                    th Unidad de Medida
+                    th Resultado
+                tbody#confirmTableBody
+            .modal-footer
+              button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+              button.btn.btn-primary(type="button" onclick="enviarFormulario();") Confirmar y Enviar
+
+    else
+      .row
+        .col-lg-12.text-center
+          p.text-muted No se encontraron resultados a analizar para esta orden.
+
+  script.
+    // Cargar información en el modal
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("registrarResultadosForm");
+      if (form) {  // Solo se ejecuta el siguiente código si el formulario existe
+        const modalBodyTable = document.getElementById("confirmTableBody");
+        const inputs = form.querySelectorAll("input[type='text']");
+
+        const updateModalTable = () => {
+          modalBodyTable.innerHTML = ""; // Limpiar tabla del modal
+          inputs.forEach(input => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${input.dataset.examen}</td>
+              <td>${input.dataset.determinacion}</td>
+              <td>${input.dataset.unidad}</td>
+              <td>${input.value || "Sin resultado"}</td>
+            `;
+            modalBodyTable.appendChild(row);
+          });
+        };
+
+        // Actualizar tabla al abrir el modal
+        document.querySelector("[data-bs-target='#confirmModal']").addEventListener("click", updateModalTable);
+      }
+    });
+
+    // Enviar el formulario
+    function enviarFormulario() {
+      document.getElementById("registrarResultadosForm").submit();
+    }

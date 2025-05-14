@@ -1,0 +1,292 @@
+extends layout
+
+block content
+  head
+    title Generación de Orden de Trabajo
+    link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.0/css/bootstrap.min.css")
+    style.
+      .selected-exams-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .selected-exam {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        width: calc(33.333% - 10px);
+        background-color: #f8f9fa;
+      }
+      .selected-exam span {
+        font-size: 14px;
+        font-weight: 500;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .selected-exam button {
+        font-size: 14px;
+        color: black;
+        background-color: #e2e2e2;
+        border: none;
+        border-radius: 3px;
+        padding: 3px 7px;
+        cursor: pointer;
+      }
+      .selected-exam button:hover {
+        background-color: #ccc;
+      }
+      .error-field {
+        border-color: red !important;
+      }
+
+  body
+    .container
+      h1(class="margin-top-custom") Generación de Orden de Trabajo
+
+      form#generar-orden-form(action="/orden/generacion-orden" method="POST")
+        .form-group
+          label(for="paciente") Paciente:
+          if pacienteSeleccionado
+            p #{pacienteSeleccionado.nombre} #{pacienteSeleccionado.apellido} (DNI: #{pacienteSeleccionado.dni})
+            input(type="hidden" name="id_paciente" value="#{pacienteSeleccionado.id_paciente}")
+            input(type="hidden" name="dni_paciente" value="#{pacienteSeleccionado.dni}")
+          else
+            input#pacienteSearch.form-control(type="text" placeholder="Buscar paciente...")
+            ul#pacienteResults.list-group
+            input#selectedPaciente(name="id_paciente" type="hidden")
+            input#selectedPacienteDNI(name="dni_paciente" type="hidden")
+            p Paciente seleccionado:
+            #selectedPacienteContainer(style="display:none")
+              p#selectedPacienteLabel
+              button#clearPacienteButton.btn.btn-secondary(type="button") Borrar
+
+        .form-group
+          label(for="estado") Estado de la Orden:
+          select#estado.form-control(name="estado", required)
+            option(value="") Seleccione un estado
+            option(value="esperando_toma_muestra") Esperando Toma de Muestra
+            option(value="analitica") Analítica
+
+        .form-group
+          label(for="examenes") Exámenes:
+          input#examSearch.form-control(type="text" placeholder="Buscar exámenes...")
+          ul#examResults.list-group
+          label(for="examenes") Exámenes seleccionados:
+          .selected-exams-container#selectedExamsList
+          input#examenesSelectedIds(name="examenesSelectedIds" type="hidden")
+
+        .form-group
+          label(for="tiposMuestra") Tipos de Muestra:
+          #tiposMuestraContainer
+
+        button#confirmarOrdenBtn.btn.btn-primary(type="button") Confirmar Orden de Trabajo
+
+      // Modal para confirmar datos
+      .modal#confirmarModal(tabindex="-1" role="dialog")
+        .modal-dialog(role="document")
+          .modal-content
+            .modal-header
+              h5.modal-title Confirmación de Orden de Trabajo
+              button.close(type="button" data-dismiss="modal" aria-label="Close")
+                span(aria-hidden="true") &times;
+            .modal-body
+              p Paciente: 
+              p#confirmPaciente
+              p Estado de la Orden: 
+              p#confirmEstado
+              p Exámenes seleccionados: 
+              ul#confirmExamenes
+              p Tipos de Muestra seleccionados: 
+              ul#confirmTiposMuestra
+            .modal-footer
+              button.btn.btn-secondary(type="button" data-dismiss="modal") Cerrar
+              button.btn.btn-primary(type="submit" form="generar-orden-form") Generar Orden de Trabajo
+
+    script.
+      const examenes = !{JSON.stringify(examenes)};
+      const pacientes = !{JSON.stringify(pacientes)};
+
+      const pacienteSearchInput = document.getElementById("pacienteSearch");
+      const pacienteResults = document.getElementById("pacienteResults");
+      const selectedPaciente = document.getElementById("selectedPaciente");
+      const selectedPacienteDNI = document.getElementById("selectedPacienteDNI");
+      const selectedPacienteContainer = document.getElementById("selectedPacienteContainer");
+      const selectedPacienteLabel = document.getElementById("selectedPacienteLabel");
+      const clearPacienteButton = document.getElementById("clearPacienteButton");
+
+      const examSearchInput = document.getElementById("examSearch");
+      const examResults = document.getElementById("examResults");
+      const selectedExamsList = document.getElementById("selectedExamsList");
+      const examenesSelectedIdsInput = document.getElementById("examenesSelectedIds");
+      const tiposMuestraContainer = document.getElementById("tiposMuestraContainer");
+      const confirmarOrdenBtn = document.getElementById("confirmarOrdenBtn");
+
+      // Modal fields
+      const confirmPaciente = document.getElementById("confirmPaciente");
+      const confirmEstado = document.getElementById("confirmEstado");
+      const confirmExamenes = document.getElementById("confirmExamenes");
+      const confirmTiposMuestra = document.getElementById("confirmTiposMuestra");
+
+      // Buscar y seleccionar paciente
+      pacienteSearchInput?.addEventListener("input", () => {
+        const searchTerm = pacienteSearchInput.value.toLowerCase();
+
+        if (searchTerm === "") {
+          pacienteResults.innerHTML = "";
+          return;
+        }
+
+        const filteredPacientes = pacientes.filter(paciente =>
+          paciente.nombre.toLowerCase().includes(searchTerm) ||
+          paciente.apellido.toLowerCase().includes(searchTerm) ||
+          paciente.dni.toLowerCase().includes(searchTerm)
+        );
+
+        pacienteResults.innerHTML = "";
+        filteredPacientes.forEach(paciente => {
+          const li = document.createElement("li");
+          li.className = "list-group-item";
+          li.textContent = `${paciente.nombre} ${paciente.apellido} (DNI: ${paciente.dni})`;
+          li.dataset.idPaciente = paciente.id_paciente;
+          li.dataset.dniPaciente = paciente.dni;
+
+          li.addEventListener("click", () => {
+            selectedPaciente.value = li.dataset.idPaciente;
+            selectedPacienteDNI.value = li.dataset.dniPaciente;
+            selectedPacienteLabel.textContent = li.textContent;
+            pacienteSearchInput.value = "";
+            pacienteResults.innerHTML = "";
+            selectedPacienteContainer.style.display = "block";
+          });
+
+          pacienteResults.appendChild(li);
+        });
+      });
+
+      clearPacienteButton?.addEventListener("click", () => {
+        selectedPaciente.value = "";
+        selectedPacienteDNI.value = "";
+        selectedPacienteLabel.textContent = "";
+        selectedPacienteContainer.style.display = "none";
+      });
+
+      // Buscar y seleccionar exámenes
+      examSearchInput?.addEventListener("input", () => {
+        const searchTerm = examSearchInput.value.toLowerCase();
+        if (searchTerm === "") {
+          examResults.innerHTML = "";
+          return;
+        }
+
+        const filteredExams = examenes.filter(examen =>
+          examen.nombre_examen.toLowerCase().includes(searchTerm)
+        );
+
+        examResults.innerHTML = "";
+        filteredExams.forEach(examen => {
+          const li = document.createElement("li");
+          li.className = "list-group-item";
+          li.textContent = examen.nombre_examen;
+          li.dataset.idExamen = examen.id_examen;
+
+          li.addEventListener("click", () => {
+            const div = document.createElement("div");
+            div.className = "selected-exam";
+            div.innerHTML = `
+              <span>${examen.nombre_examen}</span>
+              <button type="button">✖</button>
+            `;
+            div.dataset.idExamen = examen.id_examen;
+
+            div.querySelector("button").addEventListener("click", () => {
+              div.remove();
+              updateExamenesSelectedIds();
+              updateTiposMuestra();
+            });
+
+            selectedExamsList.appendChild(div);
+            updateExamenesSelectedIds();
+            updateTiposMuestra();
+            examResults.innerHTML = "";
+          });
+
+          examResults.appendChild(li);
+        });
+      });
+
+      function updateExamenesSelectedIds() {
+        const selectedIds = Array.from(selectedExamsList.children).map(div => div.dataset.idExamen);
+        examenesSelectedIdsInput.value = selectedIds.join(",");
+      }
+
+      function updateTiposMuestra() {
+        const selectedExamIds = Array.from(selectedExamsList.children).map(div => parseInt(div.dataset.idExamen));
+
+        const tiposMuestraRequeridos = new Set();
+        selectedExamIds.forEach(id => {
+          const examen = examenes.find(examen => examen.id_examen === id);
+          if (examen && examen.tipoMuestra) {
+            tiposMuestraRequeridos.add(examen.tipoMuestra.tipoDeMuestra);
+          }
+        });
+
+        tiposMuestraContainer.innerHTML = "";
+        tiposMuestraRequeridos.forEach(tipo => {
+          const div = document.createElement("div");
+          div.className = "form-check";
+          div.innerHTML = `
+            <input class="form-check-input" type="checkbox" name="tipos_muestra" value="${tipo}" id="${tipo}">
+            <label class="form-check-label" for="${tipo}">${tipo}</label>
+            <select class="form-control form-control-sm" name="estado_muestra_${tipo}" required>
+              <option value="">Seleccione estado</option>
+              <option value="esperando_toma_muestra">Esperando Toma de Muestra</option>
+              <option value="analitica">Analítica</option>
+            </select>
+          `;
+          tiposMuestraContainer.appendChild(div);
+        });
+      }
+
+      confirmarOrdenBtn?.addEventListener("click", () => {
+        // Validar campos
+        let isValid = true;
+        const requiredFields = document.querySelectorAll("[required]");
+        requiredFields.forEach(field => {
+          if (!field.value.trim()) {
+            field.classList.add("error-field");
+            isValid = false;
+          } else {
+            field.classList.remove("error-field");
+          }
+        });
+
+        if (!isValid) {
+          alert("Por favor complete todos los campos requeridos.");
+          return;
+        }
+
+        confirmPaciente.textContent = selectedPacienteLabel.textContent || "No seleccionado";
+        confirmEstado.textContent = document.getElementById("estado").value;
+
+        confirmExamenes.innerHTML = "";
+        Array.from(selectedExamsList.children).forEach(div => {
+          const li = document.createElement("li");
+          li.textContent = div.querySelector("span").textContent;
+          confirmExamenes.appendChild(li);
+        });
+
+        confirmTiposMuestra.innerHTML = "";
+        Array.from(tiposMuestraContainer.querySelectorAll("input:checked")).forEach(input => {
+          const li = document.createElement("li");
+          li.textContent = `${input.nextElementSibling.textContent} - ${input.parentNode.querySelector("select").value}`;
+          confirmTiposMuestra.appendChild(li);
+        });
+
+        $("#confirmarModal").modal("show");
+      });
