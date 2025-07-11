@@ -2,7 +2,9 @@ extends layout
 
 block content
   title Ordenes informadas
-  .container
+  
+  //- AQUÍ SE CAMBIÓ .container POR .container-fluid
+  .container-fluid
     h1.text-center.mt-4 Órdenes Informadas
 
     if ordenes && ordenes.length > 0
@@ -26,8 +28,15 @@ block content
               td= orden.ApellidoPaciente
               td= orden.DNIPaciente
               td
-                a.btn.btn-primary(href=`/registrarResultados/${orden.OrdenID}`) Modificar
-                a.btn.btn-secondary.ms-2(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
+                //- AQUÍ SE AGRUPARON LOS BOTONES EN UN MENÚ DESPLEGABLE
+                .btn-group
+                  button.btn.btn-secondary.btn-sm.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
+                    | Acciones
+                  ul.dropdown-menu
+                    li
+                      a.dropdown-item(href=`/registrarResultados/${orden.OrdenID}`) Modificar
+                    li
+                      a.dropdown-item(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
     else
       .row
         .col-lg-12.text-center

@@ -66,12 +66,7 @@ block content
               p#selectedPacienteLabel
               button#clearPacienteButton.btn.btn-secondary(type="button") Borrar
 
-        .form-group
-          label(for="estado") Estado de la Orden:
-          select#estado.form-control(name="estado", required)
-            option(value="") Seleccione un estado
-            option(value="esperando_toma_muestra") Esperando Toma de Muestra
-            option(value="analitica") Analítica
+
 
         .form-group
           label(for="examenes") Exámenes:
@@ -272,7 +267,8 @@ block content
         }
 
         confirmPaciente.textContent = selectedPacienteLabel.textContent || "No seleccionado";
-        confirmEstado.textContent = document.getElementById("estado").value;
+        confirmEstado.textContent = "Ingresada";
+
 
         confirmExamenes.innerHTML = "";
         Array.from(selectedExamsList.children).forEach(div => {

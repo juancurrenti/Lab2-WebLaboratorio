@@ -1,8 +1,8 @@
 extends layout
 
 block content
-  .container.mt-5
-    h2.mb-4 Editar mis datos
+  .container-fluid.mt-5
+    h2.mb-4 Cambiar Contraseña
 
     // Mostrar mensajes de éxito si existen
     if successMessages && successMessages.length > 0
@@ -15,62 +15,25 @@ block content
         .alert.alert-danger= msg
     
     form(method="POST" action="/portal-paciente/actualizar")
-      .row
-        .col-md-6.mb-3
-          label.form-label Nombre
-          input.form-control(
-            type="text"
-            name="nombre"
-            value=paciente.nombre
-            required
-          )
-        
-        .col-md-6.mb-3
-          label.form-label Apellido
-          input.form-control(
-            type="text"
-            name="apellido"
-            value=paciente.apellido
-            required
-          )
-      
-      .mb-3
-        label.form-label Fecha de Nacimiento
-        - const fecha = paciente.fecha_nacimiento ? new Date(paciente.fecha_nacimiento) : new Date();
-        input.form-control(
-          type="date"
-          name="fecha_nacimiento"
-          value=fecha.toISOString().split('T')[0]
-          required
-        )
-
-      // Nuevo campo para Domicilio
-      .mb-3
-        label.form-label Domicilio
-        input.form-control(
-          type="text"
-          name="direccion"
-          value=paciente.direccion
-          required
-        )
-      
       .card.mb-4
         .card-body
-          h5.card-title Cambiar Contraseña
+          h5.card-title Ingrese los datos para el cambio
           .mb-3
             label.form-label Contraseña Actual
             input.form-control(
               type="password"
               name="password_actual"
-              placeholder="Ingrese para cambiar contraseña"
+              placeholder="Ingrese su contraseña actual"
+              required
             )
           .mb-3
             label.form-label Nueva Contraseña
             input.form-control(
               type="password"
               name="nueva_password"
-              placeholder="Dejar vacío para mantener actual"
+              placeholder="Ingrese la nueva contraseña"
+              required
             )
       
-      button.btn.btn-primary(type="submit") Guardar Cambios
-      a.btn.btn-secondary.ms-2(href="/portalPaciente") Volver 
+      button.btn.btn-primary(type="submit") Cambiar Contraseña
+      a.btn.btn-secondary.ms-2(href="/portal-paciente") Volver

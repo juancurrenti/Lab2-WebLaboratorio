@@ -53,6 +53,7 @@ router.get("/ordenesAnalitica", async (req, res) => {
         offset,
         include: {
           model: Paciente,
+          as: 'paciente', // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
           attributes: ["nombre", "apellido"], // Incluir datos específicos del paciente
           required: false, // Permite que órdenes sin paciente sean incluidas
         },
@@ -142,7 +143,6 @@ router.post("/generacion-orden", async (req, res) => {
 
   try {
     const {
-      estado,
       examenesSelectedIds,
       id_paciente,
       dni_paciente,
@@ -161,7 +161,7 @@ router.post("/generacion-orden", async (req, res) => {
     const usuarioId = user.dataValues.id_Usuario;
 
     // Validar datos obligatorios
-    if (!id_paciente || !dni_paciente || !estado || !examenesSelectedIds) {
+    if (!id_paciente || !dni_paciente || !examenesSelectedIds) {
       return res
         .status(400)
         .send("Todos los campos requeridos deben ser completados.");
@@ -192,7 +192,6 @@ router.post("/generacion-orden", async (req, res) => {
     // Crear la orden de trabajo
     const nuevaOrden = await OrdenTrabajo.create({
       id_Paciente: id_paciente,
-      estado,
       dni: dni_paciente,
       Fecha_Creacion: new Date(),
       Fecha_Entrega: fechaEntrega,
@@ -703,6 +702,7 @@ router.get("/pendientesAValidar", async (req, res) => {
         where: { estado: "Para Validar" }, // Filtro para estado
         include: {
           model: Paciente,
+          as: 'paciente', // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
           attributes: ["nombre", "apellido"], // Incluir datos específicos del paciente
           required: false, // Permite que órdenes sin paciente sean incluidas
         },
@@ -911,7 +911,7 @@ const formatDate = (date) => {
 };
 
 
-// Endpoint para generar el PDF con mosaico de marca de agua
+// Endpoint para generar el PDF
 router.get("/generarPDF/:idOrden", async (req, res) => {
   const { idOrden } = req.params;
 
@@ -932,10 +932,10 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
          o.Fecha_Creacion AS fecha_ingreso
        FROM resultados r
        INNER JOIN determinaciones d ON r.id_Determinacion = d.id_Determinacion
-       INNER JOIN valoresreferencia vr ON d.id_Determinacion = vr.id_Determinacion
        INNER JOIN examen e ON d.id_Examen = e.id_examen
        INNER JOIN ordenes_trabajo o ON r.id_Orden = o.id_Orden
        INNER JOIN pacientes p ON o.id_Paciente = p.id_paciente
+       INNER JOIN valoresreferencia vr ON d.id_Determinacion = vr.id_Determinacion AND( vr.Sexo = UPPER(LEFT(p.genero, 1)) OR vr.Sexo = 'A')
        WHERE o.id_Orden = :idOrden
        ORDER BY e.nombre_examen, d.Nombre_Determinacion;`,
       {
@@ -962,7 +962,7 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
       const ySpace = 100;
 
       doc.save();
-      doc.opacity(0.07); // bien suave
+      doc.opacity(0.07);
 
       const cols = Math.ceil(doc.page.width / xSpace);
       const rows = Math.ceil(doc.page.height / ySpace);
@@ -984,7 +984,6 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     const paciente = resultados[0];
     const sexo = paciente.sexo_paciente.toLowerCase() === "masculino" ? "Masculino" : "Femenino";
 
-    // Logo central pequeño un poco más arriba (como en el ejemplo)
     if (fs.existsSync(watermarkPath)) {
       doc.image(watermarkPath, (doc.page.width - 60) / 2, 30, { width: 60 });
     }

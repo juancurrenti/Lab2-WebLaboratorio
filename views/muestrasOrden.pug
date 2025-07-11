@@ -3,75 +3,66 @@ extends layout
 block content
   head
     title Órdenes de Trabajo
-    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.min.js")
     script.
-      // JavaScript para manejar la búsqueda dinámica
+      // maneja la búsqueda dinámica en la página actual
       document.addEventListener("DOMContentLoaded", () => {
         const searchInput = document.getElementById("searchInput");
-        const tableRows = document.querySelectorAll("tbody tr");
+        if (searchInput) { // verificar si el elemento existe
+          const tableRows = document.querySelectorAll("tbody tr");
 
-        searchInput.addEventListener("input", (event) => {
-          const query = event.target.value.toLowerCase();
-          tableRows.forEach((row) => {
-            const cells = row.querySelectorAll("td");
-            const match = Array.from(cells).some(cell => 
-              cell.textContent.toLowerCase().includes(query)
-            );
-            row.style.display = match ? "" : "none";
+          searchInput.addEventListener("input", (event) => {
+            const query = event.target.value.toLowerCase();
+            tableRows.forEach((row) => {
+              const cells = row.querySelectorAll("td");
+              // búsqueda desde la segunda celda para omitir el ID
+              const match = Array.from(cells).slice(1).some(cell => 
+                cell.textContent.toLowerCase().includes(query)
+              );
+              row.style.display = match ? "" : "none";
+            });
           });
-        });
-      });
-      
-      // JavaScript para manejar la paginación
-      document.addEventListener("DOMContentLoaded", () => {
-        const paginationLinks = document.querySelectorAll(".pagination-link");
-        paginationLinks.forEach((link) => {
-          link.addEventListener("click", (event) => {
-            event.preventDefault();
-            const page = event.target.dataset.page;
-            const form = document.getElementById("paginationForm");
-            form.page.value = page;
-            form.submit();
-          });
-        });
+        }
       });
 
-  body
-    .container
-      h1 Órdenes de Trabajo
-      .mb-3
-        input#searchInput.form-control(type="text" placeholder="Buscar por nombre del paciente o DNI")
+  //- AQUÍ ESTÁ EL CAMBIO
+  .container-fluid
+    h1 Órdenes de Trabajo
+    .mb-3
+      input#searchInput.form-control(type="text" placeholder="Buscar por nombre del paciente o DNI")
 
-      table.table.table-striped.mt-4
-        thead
+    table.table.table-striped.mt-4
+      thead
+        tr
+          th #ID
+          th Paciente
+          th DNI
+          th Estado
+          th Fecha Creación
+          th Fecha Entrega
+          th Acción
+      tbody
+        each orden in ordenes
           tr
-            th #ID
-            th Paciente
-            th DNI
-            th Estado
-            th Fecha Creación
-            th Fecha Entrega
-            th Acción
-        tbody
-          each orden in ordenes
-            tr
-              td= orden.id_Orden
-              td= orden.paciente ? `${orden.paciente.nombre} ${orden.paciente.apellido}` : "Sin asignar"
-              td= orden.dni
-              td= orden.estado
-              td= orden.Fecha_Creacion ? orden.Fecha_Creacion.toISOString().split("T")[0] : "No disponible"
-              td= orden.Fecha_Entrega
-              td
-                a.btn.btn-primary(href=`/registrarResultados/${orden.id_Orden}`) Analizar
-                a.btn.btn-secondary.ms-2(href=`/muestras/ver/${orden.id_Orden}`) Ver Muestras
+            td= orden.id_Orden
+            td= orden.paciente ? `${orden.paciente.nombre} ${orden.paciente.apellido}` : "Sin asignar"
+            td= orden.dni
+            td= orden.estado
+            td= orden.Fecha_Creacion ? orden.Fecha_Creacion.toISOString().split("T")[0] : "No disponible"
+            td= orden.Fecha_Entrega
+            td
+              .btn-group
+                button.btn.btn-secondary.btn-sm.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
+                  | Acciones
+                ul.dropdown-menu
+                  li
+                    a.dropdown-item(href=`/registrarResultados/${orden.id_Orden}`) Analizar
+                  li
+                    a.dropdown-item(href=`/muestras/ver/${orden.id_Orden}`) Ver Muestras
 
-      // Paginación
-      if totalPages > 1
-        nav.mt-4
-          ul.pagination
-            each page in Array(totalPages).fill().map((_, i) => i + 1)
-              li(class=(currentPage == page ? "page-item active" : "page-item"))
-                a.page-link.pagination-link(href=`?page=${page}` data-page=page) #{page}
-
-    form#paginationForm(action="/ordenes" method="GET" style="display:none;")
-      input(type="hidden" name="page")
+    // Paginación
+    if totalPages > 1
+      nav.mt-4
+        ul.pagination
+          each page in Array(totalPages).fill().map((_, i) => i + 1)
+            li(class=(currentPage == page ? "page-item active" : "page-item"))
+              a.page-link(href=`?page=${page}`) #{page}

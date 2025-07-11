@@ -34,7 +34,7 @@ const ValoresReferencia = sequelize.define(
       type: DataTypes.FLOAT,
       allowNull: false,
     },
-    estado: {
+    Estado: {
       type: DataTypes.BOOLEAN,
     },
   },

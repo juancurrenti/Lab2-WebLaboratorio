@@ -30,6 +30,7 @@ const OrdenesTrabajo = sequelize.define(
     estado: {
       type: DataTypes.STRING,
       allowNull: false,
+      defaultValue: "Ingresada"
     },
   },
   {
@@ -39,6 +40,6 @@ const OrdenesTrabajo = sequelize.define(
 );
 OrdenesTrabajo.hasMany(Muestra, { foreignKey: "id_Orden" });
 OrdenesTrabajo.hasMany(OrdenesExamenes, { foreignKey: "id_Orden" });
-OrdenesTrabajo.belongsTo(Paciente, { foreignKey: "id_Paciente"});
+OrdenesTrabajo.belongsTo(Paciente, { foreignKey: "id_Paciente", as: 'paciente' });
 OrdenesTrabajo.hasMany(Resultado, { foreignKey: 'id_orden' });
 module.exports = OrdenesTrabajo;

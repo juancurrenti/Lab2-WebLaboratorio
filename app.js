@@ -224,6 +224,7 @@ app.use(
 );
 app.use("/muestras", checkRole(["tecnico", "bioquimico", "recepcionista"]), muestrasRouter);
 
+
 // Ruta de inicio de sesión
 app.get('/login', (req, res) => {
   if (req.isAuthenticated()) {
@@ -273,7 +274,7 @@ app.post('/login', (req, res, next) => {
         case 'admin':
           return res.redirect('/admin');
         case 'paciente':
-          return res.redirect('/portalPaciente')
+          return res.redirect('/portal-paciente')
         default:
           return res.status(403).send('Acceso no autorizado');
       }
@@ -297,7 +298,7 @@ app.get('/redirigirUsuario', (req, res) => {
     case 'admin':
       return res.redirect('/admin');
     case 'paciente':
-      return res.redirect('/portalPaciente')
+      return res.redirect('/portal-paciente')
     default:
       return res.status(403).send('Acceso no autorizado');
   }
@@ -353,16 +354,7 @@ app.get("/admin", (req, res) => {
     res.status(403).send("Acceso no autorizado");
   }
 });
-app.get("/portalPaciente", (req, res) => {
-  if (
-    req.isAuthenticated() &&
-    (req.user.rol === "paciente" || req.user.rol === "admin")
-  ) {
-    res.render("portalPaciente", { nombreUsuario: req.user.nombre_usuario });
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
+
 
 // Ruta GET para la vista de creación de usuario para administrador
 app.get("/admin/crear-usuario", (req, res) => {

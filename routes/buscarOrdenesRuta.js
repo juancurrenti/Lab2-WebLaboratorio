@@ -13,14 +13,15 @@ const { Op } = require("sequelize");
 const sequelize = require("../config/database");
 
 // Ruta para buscar un paciente y mostrar sus órdenes de trabajo
-router.get("/ordenes", (req, res) => {
+router.get("/", (req, res) => {
   // Verifica la autenticación del usuario
   const user = req.user;
   if (!user || !user.dataValues) {
     return res.status(401).send("Usuario no autenticado.");
   }
-  res.render("buscarPacientesOrdenes");
+  res.render("buscarPacientesOrdenes", { title: "Buscar Órdenes de Trabajo" });
 });
+
 router.post("/buscar-ordenes", async (req, res) => {
   // Verifica la autenticación del usuario
   const user = req.user;
@@ -208,11 +209,6 @@ router.post("/crear-modificar-orden/:idOrden", async (req, res) => {
       tipos_muestra, // Este campo debe ser un array
     } = req.body;
 
-    // Verifica la autenticación del usuario
-    const user = req.user;
-    if (!user || !user.dataValues) {
-      return res.status(401).send("Usuario no autenticado.");
-    }
     const usuarioId = user.dataValues.id_Usuario;
 
     // Validaciones

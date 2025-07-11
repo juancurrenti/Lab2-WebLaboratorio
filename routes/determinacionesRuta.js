@@ -5,33 +5,35 @@ const Determinacion = require("../models/determinacion");
 const UnidadMedida = require("../models/unidadMedida"); // Cambia a mayúsculas para la convención de nombres de modelos
 const auditoriaController = require("../routes/AuditoriaRuta");
 
-// Ruta para mostrar el formulario de creación de determinaciones
+// Ruta para mostrar el formulario de creación de determinaciones (sin selección)
 router.get("/crear-determinacion", async (req, res) => {
   try {
+    // Tu código para buscar datos se mantiene igual
     const examenes = await Examen.findAll();
     const unidadesMedida = await UnidadMedida.findAll({ raw: true });
-
-    // Incluir las relaciones con unidades de medida en las determinaciones
     const determinaciones = await Determinacion.findAll({
       include: {
         model: UnidadMedida,
-        as: "unidadMedida", // Alias definido en la asociación
+        as: "unidadMedida",
         attributes: ["id_UnidadMedida", "nombreUnidadMedida"],
       },
     });
 
-    // Serializar los datos para que incluyan las unidades relacionadas
     const serializedDeterminaciones = determinaciones.map(d => ({
       ...d.toJSON(),
       Unidad_Medida: d.unidadMedida?.id_UnidadMedida || null,
       nombreUnidadMedida: d.unidadMedida?.nombreUnidadMedida || null,
     }));
 
+    // Renderizar la vista pasando las variables como null // <<<
     res.render("crearDeterminacion", {
       examenes,
       determinaciones: serializedDeterminaciones,
       unidadesMedida,
+      idExamenSeleccionado: null,
+      nombreExamenSeleccionado: null
     });
+
   } catch (error) {
     console.error(error);
     res.status(500).send("Error al obtener los datos necesarios para la vista.");
@@ -130,20 +132,22 @@ router.delete("/:idDeterminacion", async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
+// Ruta para cargar la vista con un examen preseleccionado
 router.get("/crear-determinacion/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
+    // 1. Buscar el examen en la BD para obtener su nombre // <<<
+    const examenSeleccionado = await Examen.findByPk(id);
+
+    // 2. Manejar el caso en que el examen no exista // <<<
+    if (!examenSeleccionado) {
+      return res.status(404).send("El examen con ese ID no fue encontrado.");
+    }
+
+    // El resto de tu código para buscar datos se mantiene igual
     const examenes = await Examen.findAll();
     const unidadesMedida = await UnidadMedida.findAll({ raw: true });
-
     const determinaciones = await Determinacion.findAll({
       include: {
         model: UnidadMedida,
@@ -158,17 +162,19 @@ router.get("/crear-determinacion/:id", async (req, res) => {
       nombreUnidadMedida: d.unidadMedida?.nombreUnidadMedida || null,
     }));
 
+    // 3. Renderizar la vista, pasando TODAS las variables necesarias // <<<
     res.render("crearDeterminacion", {
       examenes,
       determinaciones: serializedDeterminaciones,
       unidadesMedida,
-      idExamenSeleccionado: id, // Examen preseleccionado
+      idExamenSeleccionado: id, // El ID que viene de la URL
+      nombreExamenSeleccionado: examenSeleccionado.nombre_examen // El nombre que obtuvimos de la BD
     });
+
   } catch (error) {
-    console.error("Error al obtener los datos necesarios para la vista:", error);
+    console.error("Error al obtener los datos para la vista:", error);
     res.status(500).send("Error al obtener los datos necesarios para la vista.");
   }
 });
-
 
 module.exports = router;

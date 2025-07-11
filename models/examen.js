@@ -30,7 +30,7 @@ const Examen = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: "tipos_muestra", // Nombre de la tabla relacionada
+        model: "tipos_muestra",
         key: "idTipoMuestra",
       },
     },
@@ -47,9 +47,5 @@ const Examen = sequelize.define(
   }
 );
 
-Examen.belongsTo(TiposMuestra, {
-  foreignKey: "idTipoMuestra",
-  as: "tipoMuestra", // Alias para la relación
-});
 
 module.exports = Examen;

@@ -2,7 +2,7 @@ extends layout
 
 block content
   title Portal Paciente
-  .container
+  .container-fluid
     .text-end.mb-4
       a.btn.btn-info(href="/portal-paciente/editar") 
         i.fas.fa-edit.me-2
@@ -21,11 +21,11 @@ block content
         tbody
           each orden in ordenes
             tr
-              td= orden.OrdenID
-              td= orden.FechaCreacion || "No disponible"
-              td= orden.FechaEntrega || "No disponible"
+              td= orden.id_Orden
+              td= new Date(orden.Fecha_Creacion).toLocaleDateString('es-AR') || "No disponible"
+              td= new Date(orden.Fecha_Entrega).toLocaleDateString('es-AR') || "No disponible"
               td
-                a.btn.btn-secondary.ms-2(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
+                a.btn.btn-secondary.ms-2(href=`/generarPDF/${orden.id_Orden}` target="_blank") Imprimir
     else
       .row
         .col-lg-12.text-center

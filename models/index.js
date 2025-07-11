@@ -11,6 +11,7 @@ const Paciente = require("./paciente");
 const Resultado = require("./resultados");
 const ValoresReferencia = require("./valoresReferencia");
 const TiposMuestra = require("./tipos_muestra");
+const UnidadMedida = require("./unidadMedida"); // <<< 1. MODELO IMPORTADO
 
 // Definir asociaciones
 
@@ -41,6 +42,18 @@ Determinacion.belongsTo(Examen, {
   foreignKey: "id_examen", // Clave foránea en Determinacion
   as: "examen", // Alias para acceder al examen
 });
+
+// <<< 2. ASOCIACIÓN AÑADIDA
+// Determinacion y UnidadMedida
+Determinacion.belongsTo(UnidadMedida, {
+  foreignKey: "Unidad_Medida",
+  as: "unidadMedida",
+});
+
+UnidadMedida.hasMany(Determinacion, {
+  foreignKey: "Unidad_Medida",
+});
+// >>> FIN DE LA ASOCIACIÓN AÑADIDA
 
 // Determinacion y ValoresReferencia
 Determinacion.hasMany(ValoresReferencia, {
@@ -77,4 +90,5 @@ module.exports = {
   Resultado,
   ValoresReferencia,
   TiposMuestra,
+  UnidadMedida, // <<< 3. MODELO EXPORTADO
 };

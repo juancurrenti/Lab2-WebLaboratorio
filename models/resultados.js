@@ -4,7 +4,7 @@ const Determinacion = require("../models/determinacion");
 const OrdenesTrabajo = require("../models/ordenes_trabajo");
 
 const Resultado = sequelize.define(
-  "resultados",
+  "Resultado",
   {
     id_Resultado: {
       type: DataTypes.INTEGER,
