@@ -10,12 +10,76 @@ const OrdenTrabajo = require("../models/ordenes_trabajo");
 const Muestra = require("../models/muestra");
 const Examen = require("../models/examen");
 const Paciente = require("../models/paciente");
+const Usuarios = require("../models/User");
 const OrdenesExamenes = require("../models/ordenes_examen");
 const auditoriaController = require("../routes/AuditoriaRuta");
 const TiposMuestra = require("../models/tipos_muestra");
 const Determinaciones = require("../models/determinacion");
 const Resultado = require("../models/resultados");
 const valoresReferencia = require("../models/valoresReferencia");
+
+// =================================================================
+// <-- NUEVO: PEGA LA FUNCIÓN COMPLETA AQUÍ
+// Esta función auxiliar calcula y actualiza el estado de la orden
+// basándose en el estado de sus muestras.
+// =================================================================
+async function actualizarEstadoOrden(idOrden, transaction = null) {
+  try {
+    const muestras = await Muestra.findAll({
+      where: { id_Orden: idOrden },
+      ...(transaction && { transaction }),
+    });
+
+    if (!muestras || muestras.length === 0) {
+      console.log(`Orden ${idOrden} sin muestras. No se cambia el estado.`);
+      return; 
+    }
+
+    const totalMuestras = muestras.length;
+    const muestrasFinalizadas = muestras.filter((m) =>
+      ["Pre-Informe", "Informada", "Validada"].includes(m.estado)
+    ).length;
+    
+    const muestrasEnProceso = muestras.filter((m) =>
+      ["ingresada", "analitica", "en proceso"].includes(m.estado.toLowerCase())
+    ).length;
+
+    const muestrasPendientes = muestras.filter(m => 
+      m.estado.toLowerCase() === 'pendiente'
+    ).length;
+
+    let nuevoEstadoOrden = "Preanalitica";
+
+    if (muestrasPendientes === totalMuestras) {
+        nuevoEstadoOrden = "Preanalitica";
+    } else if (muestrasFinalizadas === totalMuestras) {
+      // --- CORRECCIÓN AQUÍ ---
+      // En lugar de 'Postanalitica', ahora pasa a 'Para Validar'.
+      nuevoEstadoOrden = "Para Validar"; 
+    } else if (muestrasEnProceso > 0) { 
+      nuevoEstadoOrden = "Analitica";
+    }
+
+    // Finalmente, actualizamos la orden solo si el estado es diferente al actual
+    const ordenActual = await OrdenTrabajo.findByPk(idOrden, { attributes: ['estado'], transaction });
+    if (ordenActual && ordenActual.estado !== nuevoEstadoOrden) {
+        await OrdenTrabajo.update(
+          { estado: nuevoEstadoOrden },
+          {
+            where: { id_Orden: idOrden },
+            ...(transaction && { transaction }),
+          }
+        );
+        console.log(`Estado de la orden ${idOrden} actualizado a: ${nuevoEstadoOrden}`);
+    }
+
+  } catch (error) {
+    console.error(`Error al actualizar el estado de la orden ${idOrden}:`, error);
+  }
+}
+
+
+
 // Función para sumar días a una fecha
 function sumarDias(fecha, dias) {
   const resultado = new Date(fecha);
@@ -137,119 +201,127 @@ router.get("/generacion-orden/:dni?", async (req, res) => {
   }
 });
 
-// Ruta para procesar la generación de ordenrouter.post("/generacion-orden", async (req, res) => {
+// REEMPLAZA TU RUTA EXISTENTE CON ESTA VERSIÓN COMPLETA
+
+// REEMPLAZA LA RUTA "POST /generacion-orden" EXISTENTE CON ESTA VERSIÓN
+
 router.post("/generacion-orden", async (req, res) => {
   const rol = res.locals.rol;
+  const transaction = await sequelize.transaction();
 
   try {
     const {
-      examenesSelectedIds,
       id_paciente,
-      dni_paciente,
-      tipos_muestra, // Este es un array con los tipos de muestra seleccionados
+      examenesSelectedIds,
       ...rest
     } = req.body;
 
     const user = req.user;
 
-    console.log("Datos recibidos:", req.body);
-
-    // Verificar autenticación
+    // 1. Validación y obtención de datos del paciente
+    if (!id_paciente) {
+      return res.status(400).send("Se debe seleccionar un paciente.");
+    }
     if (!user || !user.dataValues) {
       return res.status(401).send("Usuario no autenticado.");
     }
     const usuarioId = user.dataValues.id_Usuario;
 
-    // Validar datos obligatorios
-    if (!id_paciente || !dni_paciente || !examenesSelectedIds) {
-      return res
-        .status(400)
-        .send("Todos los campos requeridos deben ser completados.");
+    const paciente = await Paciente.findByPk(id_paciente, { transaction });
+    if (!paciente) {
+      await transaction.rollback();
+      return res.status(404).send("Paciente no encontrado.");
     }
 
-    const examenesSelectedIdsArray = examenesSelectedIds
-      .split(",")
-      .map((id) => parseInt(id))
-      .filter(Boolean);
-
-    if (examenesSelectedIdsArray.length === 0) {
-      return res
-        .status(400)
-        .send("Debe seleccionar al menos un examen válido.");
-    }
-
-    // Calcular fecha de entrega
-    const tiempoMaximoDemora = await Examen.max("tiempoDemora", {
-      where: { id_examen: examenesSelectedIdsArray },
+    // =================================================================
+    // <-- AÑADIDO: Lógica para actualizar el rol a 'paciente'
+    // =================================================================
+    const usuarioAsociado = await Usuarios.findOne({
+      where: { Correo_Electronico: paciente.email },
+      transaction
     });
 
-    if (!tiempoMaximoDemora) {
-      return res.status(400).send("No se pudo calcular el tiempo de demora.");
+    if (usuarioAsociado && usuarioAsociado.rol !== 'paciente') {
+      usuarioAsociado.rol = 'paciente';
+      await usuarioAsociado.save({ transaction });
+    }
+    // =================================================================
+
+    const dni_paciente = paciente.dni;
+
+    // 2. Lógica para la fecha de entrega
+    let fechaEntrega = sumarDias(new Date(), 1);
+    if (examenesSelectedIds && examenesSelectedIds.trim() !== '') {
+      const examenesIdsArray = examenesSelectedIds.split(",").map(id => parseInt(id)).filter(Boolean);
+      if (examenesIdsArray.length > 0) {
+        const tiempoMaximoDemora = await Examen.max("tiempoDemora", {
+          where: { id_examen: examenesIdsArray },
+          transaction,
+        });
+        if(tiempoMaximoDemora) {
+          fechaEntrega = sumarDias(new Date(), tiempoMaximoDemora);
+        }
+      }
     }
 
-    const fechaEntrega = sumarDias(new Date(), tiempoMaximoDemora);
-
-    // Crear la orden de trabajo
+    // 3. Crear la orden de trabajo
     const nuevaOrden = await OrdenTrabajo.create({
       id_Paciente: id_paciente,
       dni: dni_paciente,
       Fecha_Creacion: new Date(),
       Fecha_Entrega: fechaEntrega,
-    });
+      estado: "Preanalitica",
+    }, { transaction });
 
-    console.log(`Orden creada con ID: ${nuevaOrden.id_Orden}`);
-
-    // Asociar exámenes a la orden
-    for (const examenId of examenesSelectedIdsArray) {
-      await OrdenesExamenes.create({
-        id_Orden: nuevaOrden.id_Orden,
-        id_examen: examenId,
-      });
-    }
-
-    // Manejar tipos de muestra y sus estados
-    if (tipos_muestra) {
-      const tiposMuestraArray = Array.isArray(tipos_muestra)
-        ? tipos_muestra
-        : [tipos_muestra];
-
-      for (const tipoMuestra of tiposMuestraArray) {
-        const idTipoMuestra = await obtenerIdTipoMuestra(tipoMuestra.trim());
-        if (!idTipoMuestra) continue;
-
-        const estadoMuestraKey = `estado_muestra_${tipoMuestra.trim()}`;
-        const estadoMuestra = rest[estadoMuestraKey];
-
-        if (!estadoMuestra) {
-          return res
-            .status(400)
-            .send(
-              `Debe seleccionar un estado para el tipo de muestra: ${tipoMuestra}`
-            );
-        }
-
-        await Muestra.create({
+    // 4. Procesar exámenes y muestras (sin cambios en esta parte)
+    if (examenesSelectedIds && examenesSelectedIds.trim() !== '') {
+      const examenesIds = examenesSelectedIds.split(',').map(Number).filter(Boolean);
+      for (const examenId of examenesIds) {
+        await OrdenesExamenes.create({
           id_Orden: nuevaOrden.id_Orden,
-          id_Paciente: id_paciente,
-          idTipoMuestra,
-          Fecha_Recepcion: new Date(),
-          estado: estadoMuestra,
-        });
+          id_examen: examenId,
+        }, { transaction });
       }
-    } else {
-      console.warn("No se seleccionaron tipos de muestra.");
+      const examenesRequeridos = await Examen.findAll({
+        where: { id_examen: { [Op.in]: examenesIds } },
+        include: [{ model: TiposMuestra, as: 'tipoMuestra' }],
+        transaction
+      });
+      const tiposMuestraUnicos = new Map();
+      examenesRequeridos.forEach(examen => {
+        if (examen.tipoMuestra) {
+          tiposMuestraUnicos.set(examen.tipoMuestra.idTipoMuestra, examen.tipoMuestra.tipoDeMuestra);
+        }
+      });
+      for (const [idTipoMuestra, nombreTipoMuestra] of tiposMuestraUnicos.entries()) {
+        const estadoKey = `estado_muestra_${nombreTipoMuestra}`;
+        const estado = rest[estadoKey] === 'ingresada' ? 'ingresada' : 'pendiente';
+        await Muestra.create({
+            id_Orden: nuevaOrden.id_Orden,
+            id_Paciente: id_paciente,
+            idTipoMuestra: idTipoMuestra,
+            Fecha_Recepcion: new Date(),
+            estado: estado,
+        }, { transaction });
+      }
     }
+    
+    // 5. Actualizar estado y finalizar
+    await actualizarEstadoOrden(nuevaOrden.id_Orden, transaction);
 
-    // Registrar auditoría
     await auditoriaController.registrar(
       usuarioId,
       "Generación de Orden de Trabajo",
-      `Generación de una nueva orden con ID: ${nuevaOrden.id_Orden}`
+      `Generación de una nueva orden con ID: ${nuevaOrden.id_Orden}`,
+      { transaction }
     );
 
-    res.render(`${rol}`, { success: "Orden generada con exito" });
+    await transaction.commit();
+    res.render(`${rol}`, { success: "Orden generada con éxito" });
+
   } catch (error) {
-    console.error("Error al procesar el formulario:", error);
+    if (transaction) await transaction.rollback();
+    console.error("Error al procesar el formulario de generación:", error);
     res.status(500).send("Error al procesar el formulario.");
   }
 });
@@ -330,6 +402,9 @@ router.post("/muestras/preinformar/:id_Orden", async (req, res) => {
         `Se actualizaron ${updatedRows} muestras de la orden ${id_Orden} a estado Pre-Informe.`
       );
 
+      // <-- AGREGA ESTA LÍNEA AQUÍ
+      await actualizarEstadoOrden(id_Orden);
+
       // Redirigir a la vista con un mensaje de éxito
       return res.render("ver-muestras", {
         muestras: await Muestra.findAll({
@@ -383,6 +458,9 @@ router.post("/muestras/cambiar-estado/:idMuestra", async (req, res) => {
 
     muestra.estado = nuevoEstado;
     await muestra.save();
+
+    // <-- AGREGA ESTA LÍNEA AQUÍ
+    await actualizarEstadoOrden(muestra.id_Orden);
 
     res.json({
       success: true,
@@ -830,19 +908,6 @@ router.post("/confirmarValidacion", async (req, res) => {
       }
     );
 
-    // Actualizar estado de las muestras asociadas
-    await sequelize.query(
-      `
-      UPDATE muestra
-      SET estado = 'Informada'
-      WHERE id_Orden = :idOrden
-      `,
-      {
-        replacements: { idOrden },
-        type: sequelize.QueryTypes.UPDATE,
-        transaction,
-      }
-    );
 
     // Confirmar la transacción
     await transaction.commit();
@@ -1062,6 +1127,97 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
   } catch (error) {
     console.error("Error al generar el PDF:", error);
     res.status(500).json({ error: "Error al generar el archivo PDF." });
+  }
+});
+
+// =================================================================
+// RUTA DE ACTUALIZACIÓN (VERSIÓN FINAL Y CORRECTA)
+// =================================================================
+router.post("/actualizar-orden/:idOrden", async (req, res) => {
+  const { idOrden } = req.params;
+  const usuarioId = req.user.dataValues.id_Usuario;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const {
+      examenesSelectedIds,
+      ...estadosMuestras
+    } = req.body;
+
+    const orden = await OrdenTrabajo.findByPk(idOrden, { transaction });
+    if (!orden) {
+      await transaction.rollback();
+      return res.status(404).send("Orden no encontrada.");
+    }
+
+    // 1. Borramos las relaciones viejas para empezar de cero
+    await OrdenesExamenes.destroy({ where: { id_Orden: idOrden }, transaction });
+    await Muestra.destroy({ where: { id_Orden: idOrden }, transaction });
+    
+    // 2. Verificamos si se seleccionaron exámenes
+    if (examenesSelectedIds && examenesSelectedIds.trim() !== '') {
+      const examenesIds = examenesSelectedIds.split(',').map(Number).filter(Boolean);
+
+      // 2a. Re-creamos las relaciones con los exámenes
+      for (const examenId of examenesIds) {
+        await OrdenesExamenes.create({
+          id_Orden: idOrden,
+          id_examen: examenId,
+        }, { transaction });
+      }
+
+      // 2b. Determinamos qué tipos de muestra únicos son necesarios
+      const examenesRequeridos = await Examen.findAll({
+        where: { id_examen: { [Op.in]: examenesIds } },
+        include: [{ model: TiposMuestra, as: 'tipoMuestra' }],
+        transaction
+      });
+
+      const tiposMuestraUnicos = new Map();
+      examenesRequeridos.forEach(examen => {
+        if (examen.tipoMuestra) {
+          tiposMuestraUnicos.set(examen.tipoMuestra.idTipoMuestra, examen.tipoMuestra.tipoDeMuestra);
+        }
+      });
+      
+      // 2c. Re-creamos las muestras basadas en los requerimientos de los exámenes
+      for (const [idTipoMuestra, nombreTipoMuestra] of tiposMuestraUnicos.entries()) {
+        const estadoKey = `estado_muestra_${nombreTipoMuestra}`;
+        
+        // El estado es 'ingresada' si se recibió su checkbox, si no, por defecto es 'pendiente'.
+        const estado = estadosMuestras[estadoKey] === 'ingresada' ? 'ingresada' : 'pendiente';
+
+        await Muestra.create({
+            id_Orden: idOrden,
+            id_Paciente: orden.id_Paciente,
+            idTipoMuestra: idTipoMuestra,
+            Fecha_Recepcion: new Date(),
+            estado: estado,
+        }, { transaction });
+      }
+    }
+    
+    // 3. Actualizamos el estado general de la orden
+    await actualizarEstadoOrden(idOrden, transaction);
+
+    // 4. Registramos la auditoría
+    await auditoriaController.registrar(
+      usuarioId,
+      "Modificación de Orden de Trabajo",
+      `Se modificó la orden con ID: ${idOrden}`,
+      { transaction }
+    );
+    
+    // 5. Si todo salió bien, confirmamos los cambios
+    await transaction.commit();
+
+    // Redirigimos al usuario
+    res.redirect(`/buscarOrdenes/crear-modificar-orden/${idOrden}?success=Orden+${idOrden}+actualizada`);
+
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    console.error("Error al actualizar la orden:", error);
+    res.status(500).send("Error al procesar la actualización de la orden.");
   }
 });
 

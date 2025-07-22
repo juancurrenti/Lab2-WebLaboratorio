@@ -126,8 +126,8 @@ router.post("/guardar-paciente", async (req, res) => {
     }
     await Paciente.create({ nombre, apellido, dni, email, telefono, direccion, fecha_nacimiento, genero, embarazo, diagnostico, fecha_registro: new Date() });
     const hashedPassword = await bcrypt.hash(dni, 10);
-    await Usuarios.create({ nombre_usuario: `${nombre} ${apellido}`, rol: "paciente", correo_electronico: email, password: hashedPassword });
-    await auditoriaController.registrar(usuarioId, "Creación de Paciente", `Nuevo paciente: ${nombre} ${apellido} (DNI: ${dni})`);
+    await Usuarios.create({ nombre_usuario: `${nombre} ${apellido}`, rol: "usuario", correo_electronico: email, password: hashedPassword });
+    await auditoriaController.registrar(usuarioId, "Creación de Usuario", `Nuevo Usuario: ${nombre} ${apellido} (DNI: ${dni})`);
     const templatePath = path.join(__dirname, '../templates/emailTemplate.html');
     let htmlTemplate = fs.readFileSync(templatePath, 'utf8')
       .replace(/\${email}/g, email).replace(/\${dni}/g, dni).replace(/\${nombre}/g, nombre)
@@ -166,48 +166,68 @@ router.get("/portal-paciente", checkRole(["paciente"]), async (req, res) => {
   }
 });
 
+// RUTA GET para mostrar el formulario de edición (esta no cambia)
 router.get("/portal-paciente/editar", checkRole(["paciente"]), async (req, res) => {
-  try {
-    const paciente = await Paciente.findOne({ where: { email: req.user.correo_electronico } });
-    if (!paciente) {
-      req.flash("error", "Paciente no encontrado");
-      return res.redirect("/portal-paciente");
-    }
-    res.render("editarPaciente", { paciente: paciente.get({ plain: true }) });
-  } catch (error) {
-    console.error("Error al cargar datos del paciente:", error);
-    req.flash("error", "Error al cargar datos");
-    res.redirect("/portal-paciente");
-  }
+  try {
+    const paciente = await Paciente.findOne({ where: { email: req.user.correo_electronico } });
+    if (!paciente) {
+      req.flash("error", "Paciente no encontrado");
+      return res.redirect("/portal-paciente");
+    }
+    res.render("editarPaciente", { 
+        paciente: paciente.get({ plain: true }),
+        successMessages: req.flash('success'),
+        errorMessages: req.flash('error')
+    });
+  } catch (error) {
+    console.error("Error al cargar datos del paciente:", error);
+    req.flash("error", "Error al cargar datos");
+    res.redirect("/portal-paciente");
+  }
 });
 
+// RUTA POST QUE SOLO ACTUALIZA LA CONTRASEÑA (CON LÓGICA DE MODAL)
 router.post("/portal-paciente/actualizar", checkRole(["paciente"]), async (req, res) => {
-  try {
-    const { nombre, apellido, fecha_nacimiento, direccion, password_actual, nueva_password } = req.body;
-    const usuario = await Usuarios.findByPk(req.user.id_Usuario);
-    const paciente = await Paciente.findOne({ where: { email: usuario.correo_electronico } });
-    if (nueva_password && nueva_password.trim() !== "") {
-      const passwordValido = await bcrypt.compare(password_actual, usuario.password);
-      if (!passwordValido) {
-        req.flash("error", "Contraseña actual incorrecta");
+  try {
+    const { password_actual, nueva_password } = req.body;
+    const usuario = await Usuarios.findByPk(req.user.id_Usuario);
+
+    // Si no se envía una nueva contraseña, no se hace nada.
+    if (!nueva_password || nueva_password.trim() === "") {
+        req.flash("error", "No se ingresó una nueva contraseña.");
         return res.redirect("/portal-paciente/editar");
-      }
-      usuario.password = await bcrypt.hash(nueva_password, 10);
-      await usuario.save();
     }
-    await paciente.update({ nombre, apellido, fecha_nacimiento: new Date(fecha_nacimiento), direccion });
-    const nuevoNombre = `${nombre} ${apellido}`;
-    if (usuario.nombre_usuario !== nuevoNombre) {
-      usuario.nombre_usuario = nuevoNombre;
-      await usuario.save();
+
+    if (!password_actual || password_actual.trim() === "") {
+        req.flash("error", "Para cambiar la contraseña, debes ingresar tu contraseña actual.");
+        return res.redirect("/portal-paciente/editar");
     }
-    req.flash("success", "¡Datos actualizados correctamente!");
-    return res.redirect("/portal-paciente/editar");
-  } catch (error) {
-    console.error("Error al actualizar los datos:", error);
-    req.flash("error", "Error al actualizar los datos");
-    return res.redirect("/portal-paciente/editar");
-  }
+
+    const passwordValido = await bcrypt.compare(password_actual, usuario.password);
+    if (!passwordValido) {
+        req.flash("error", "La contraseña actual es incorrecta.");
+        return res.redirect("/portal-paciente/editar");
+    }
+
+    // --- NUEVO: Verificar si la nueva contraseña es idéntica a la anterior ---
+    const esMismaPassword = await bcrypt.compare(nueva_password, usuario.password);
+    if (esMismaPassword) {
+        req.flash("error", "Error al modificar la contraseña, motivo: Contraseña idéntica a la anterior.");
+        return res.redirect("/portal-paciente/editar");
+    }
+
+    // Si todo es correcto, hasheamos y guardamos la nueva contraseña.
+    usuario.password = await bcrypt.hash(nueva_password, 10);
+    await usuario.save();
+
+    // --- CAMBIO: Redirigimos con un parámetro para activar el modal ---
+    return res.redirect("/portal-paciente/editar?password_success=true");
+
+  } catch (error) {
+    console.error("Error al actualizar la contraseña:", error);
+    req.flash("error", "Error al actualizar la contraseña.");
+    return res.redirect("/portal-paciente/editar");
+  }
 });
 
 router.post("/eliminar-paciente/:dni", async (req, res) => {

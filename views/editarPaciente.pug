@@ -4,16 +4,12 @@ block content
   .container-fluid.mt-5
     h2.mb-4 Cambiar Contraseña
 
-    // Mostrar mensajes de éxito si existen
-    if successMessages && successMessages.length > 0
-      each msg in successMessages
-        .alert.alert-success= msg
-
-    // Mostrar mensajes de error si existen
+    //- Mostrar mensajes de error si existen (contraseña incorrecta, idéntica, etc.)
     if errorMessages && errorMessages.length > 0
       each msg in errorMessages
         .alert.alert-danger= msg
     
+    //- El formulario envía los datos a la ruta de actualización
     form(method="POST" action="/portal-paciente/actualizar")
       .card.mb-4
         .card-body
@@ -37,3 +33,38 @@ block content
       
       button.btn.btn-primary(type="submit") Cambiar Contraseña
       a.btn.btn-secondary.ms-2(href="/portal-paciente") Volver
+
+  //- =================================================================
+  //- CÓDIGO DEL MODAL DE ÉXITO
+  //- Se coloca aquí, dentro de 'block content', pero fuera del formulario.
+  //- =================================================================
+  .modal.fade#successModal(tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true")
+    .modal-dialog.modal-dialog-centered
+      .modal-content
+        .modal-header.bg-success.text-white
+          h5.modal-title#successModalLabel ¡Éxito!
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Close")
+        .modal-body
+          p Tu contraseña ha sido modificada correctamente.
+        .modal-footer
+          button.btn.btn-success(type="button" data-bs-dismiss="modal") Cerrar
+
+  //- =================================================================
+  //- SCRIPT PARA MOSTRAR EL MODAL
+  //- Se coloca al final de 'block content' para asegurar que el DOM esté cargado.
+  //- =================================================================
+  script.
+    document.addEventListener('DOMContentLoaded', function() {
+      // Busca el parámetro 'password_success=true' en la URL actual.
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('password_success') === 'true') {
+        // Si lo encuentra, crea una instancia del modal de Bootstrap y lo muestra.
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        successModal.show();
+        
+        // Opcional pero recomendado: Limpia la URL para que el modal no vuelva a aparecer
+        // si el usuario recarga la página.
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+      }
+    });

@@ -66,8 +66,6 @@ block content
               p#selectedPacienteLabel
               button#clearPacienteButton.btn.btn-secondary(type="button") Borrar
 
-
-
         .form-group
           label(for="examenes") Exámenes:
           input#examSearch.form-control(type="text" placeholder="Buscar exámenes...")
@@ -235,16 +233,23 @@ block content
         tiposMuestraRequeridos.forEach(tipo => {
           const div = document.createElement("div");
           div.className = "form-check";
+
+          // ===== CAMBIO 1: Se añade un input oculto para el estado y se asignan IDs =====
           div.innerHTML = `
-            <input class="form-check-input" type="checkbox" name="tipos_muestra" value="${tipo}" id="${tipo}">
-            <label class="form-check-label" for="${tipo}">${tipo}</label>
-            <select class="form-control form-control-sm" name="estado_muestra_${tipo}" required>
-              <option value="">Seleccione estado</option>
-              <option value="esperando_toma_muestra">Esperando Toma de Muestra</option>
-              <option value="analitica">Analítica</option>
-            </select>
+            <input class="form-check-input" type="checkbox" name="tipos_muestra" value="${tipo}" id="check_${tipo}">
+            <label class="form-check-label" for="check_${tipo}">${tipo}</label>
+            <input type="hidden" name="estado_muestra_${tipo}" id="estado_${tipo}" value="pendiente">
           `;
           tiposMuestraContainer.appendChild(div);
+
+          // ===== CAMBIO 2: Se añade un listener para actualizar el estado =====
+          const newCheckbox = div.querySelector(`#check_${tipo}`);
+          const hiddenInput = div.querySelector(`#estado_${tipo}`);
+
+          newCheckbox.addEventListener('change', () => {
+            // Si el checkbox está marcado, el estado es 'ingresada', si no, es 'pendiente'
+            hiddenInput.value = newCheckbox.checked ? 'ingresada' : 'pendiente';
+          });
         });
       }
 
@@ -269,7 +274,6 @@ block content
         confirmPaciente.textContent = selectedPacienteLabel.textContent || "No seleccionado";
         confirmEstado.textContent = "Ingresada";
 
-
         confirmExamenes.innerHTML = "";
         Array.from(selectedExamsList.children).forEach(div => {
           const li = document.createElement("li");
@@ -277,10 +281,13 @@ block content
           confirmExamenes.appendChild(li);
         });
 
+        // ===== CAMBIO 3: Leer el estado del campo oculto para el modal =====
         confirmTiposMuestra.innerHTML = "";
-        Array.from(tiposMuestraContainer.querySelectorAll("input:checked")).forEach(input => {
+        Array.from(tiposMuestraContainer.children).forEach(div => {
+          const label = div.querySelector("label").textContent;
+          const estado = div.querySelector("input[type=hidden]").value;
           const li = document.createElement("li");
-          li.textContent = `${input.nextElementSibling.textContent} - ${input.parentNode.querySelector("select").value}`;
+          li.textContent = `${label} - (${estado})`;
           confirmTiposMuestra.appendChild(li);
         });
 
