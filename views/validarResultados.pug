@@ -35,7 +35,7 @@ block content
       // Botón para abrir el modal de confirmación
       .mt-4
         button.btn.btn-success(type="button" data-bs-toggle="modal" data-bs-target="#confirmModal") Informar Orden
-        a.btn.btn-primary.ms-2(href=`http://localhost:3000/registrarResultados/${orden[0].OrdenID}`) Modificar Resultados
+        a.btn.btn-primary.ms-2(href=`/orden/registrarResultados/${orden[0].OrdenID}?origen=validar&modificar=true`) Modificar Resultados
 
       // Modal de confirmación
       .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
@@ -66,7 +66,7 @@ block content
                       td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino' 
                       td= item.ResultadoValor
             .modal-footer
-              form(method="POST" action="/confirmarValidacion")
+              form(method="POST" action="/orden/confirmarValidacion")
                 input(type="hidden" name="idOrden" value=orden[0].OrdenID)
                 button.btn.btn-success(type="submit") Confirmar Validación
               button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar

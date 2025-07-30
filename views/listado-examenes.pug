@@ -1,7 +1,7 @@
 extends layout
 
 block content
-  //- AQUÍ SE CAMBIÓ .container POR .container-fluid
+
   .container-fluid
     h1.mt-4 Listado de Exámenes Disponibles
 
@@ -18,7 +18,7 @@ block content
       tbody#examsTable
 
   script.
-    // Recibimos la lista de exámenes desde el servidor
+
     const exams = !{JSON.stringify(exams)};
 
     const searchInput = document.getElementById("search_examen");
@@ -37,10 +37,10 @@ block content
       });
     }
 
-    // Render inicial con todos los exámenes
+
     renderExams(exams);
 
-    // Filtrar en tiempo real por nombre o código
+
     searchInput.addEventListener("input", () => {
       const searchTerm = searchInput.value.toLowerCase();
       const filteredExams = exams.filter(exam => {

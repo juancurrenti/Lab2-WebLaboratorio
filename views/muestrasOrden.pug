@@ -4,17 +4,15 @@ block content
   head
     title Órdenes de Trabajo
     script.
-      // maneja la búsqueda dinámica en la página actual
       document.addEventListener("DOMContentLoaded", () => {
         const searchInput = document.getElementById("searchInput");
-        if (searchInput) { // verificar si el elemento existe
+        if (searchInput) {
           const tableRows = document.querySelectorAll("tbody tr");
 
           searchInput.addEventListener("input", (event) => {
             const query = event.target.value.toLowerCase();
             tableRows.forEach((row) => {
               const cells = row.querySelectorAll("td");
-              // búsqueda desde la segunda celda para omitir el ID
               const match = Array.from(cells).slice(1).some(cell => 
                 cell.textContent.toLowerCase().includes(query)
               );
@@ -24,7 +22,6 @@ block content
         }
       });
 
-  //- AQUÍ ESTÁ EL CAMBIO
   .container-fluid
     h1 Órdenes de Trabajo
     .mb-3
@@ -47,17 +44,21 @@ block content
             td= orden.paciente ? `${orden.paciente.nombre} ${orden.paciente.apellido}` : "Sin asignar"
             td= orden.dni
             td= orden.estado
-            td= orden.Fecha_Creacion ? orden.Fecha_Creacion.toISOString().split("T")[0] : "No disponible"
-            td= orden.Fecha_Entrega
+            td= orden.Fecha_Creacion ? new Date(orden.Fecha_Creacion).toLocaleDateString('es-AR') : "No disponible"
+            td= orden.Fecha_Entrega ? new Date(orden.Fecha_Entrega).toLocaleDateString('es-AR') : "No disponible"
             td
               .btn-group
                 button.btn.btn-secondary.btn-sm.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
                   | Acciones
                 ul.dropdown-menu
+                  
                   li
-                    a.dropdown-item(href=`/registrarResultados/${orden.id_Orden}`) Analizar
-                  li
-                    a.dropdown-item(href=`/muestras/ver/${orden.id_Orden}`) Ver Muestras
+                    a.dropdown-item(href=`/orden/muestras/ver/${orden.id_Orden}`) Ver Muestras
+                  
+                  
+                  if rol !== 'recepcionista'
+                    li
+                      a.dropdown-item(href=`/orden/registrarResultados/${orden.id_Orden}`) Analizar
 
     // Paginación
     if totalPages > 1
@@ -66,3 +67,4 @@ block content
           each page in Array(totalPages).fill().map((_, i) => i + 1)
             li(class=(currentPage == page ? "page-item active" : "page-item"))
               a.page-link(href=`?page=${page}`) #{page}
+  a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver

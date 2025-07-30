@@ -3,180 +3,187 @@ extends layout
 block content
   head
     title Modificar Orden de Trabajo
-    link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.0/css/bootstrap.min.css")
     style.
       .selected-exams-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-      .selected-exam { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: calc(33.333% - 10px); background-color: #f8f9fa; }
-      .selected-exam span { font-size: 14px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .selected-exam button { font-size: 14px; color: white; background-color: #dc3545; border: none; border-radius: 3px; padding: 3px 7px; cursor: pointer; }
-      .selected-exam button:hover { background-color: #c82333; }
-      .form-check-container { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
-      .error-field { border-color: red !important; }
+      .selected-exam { display: flex; align-items: center; padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f8f9fa; }
+      .selected-exam span { flex: 1; }
+      .selected-exam button { color: #dc3545; background: none; border: none; font-weight: bold; cursor: pointer; }
+      .list-group-item-action { cursor: pointer; }
 
-  body
-    .container
-      h1(class="margin-top-custom") Modificar Orden de Trabajo ##{orden.id_Orden}
+  .container
+    h1(class="margin-top-custom") Modificar Orden de Trabajo ##{orden.id_Orden}
 
-      // MODIFICADO: El formulario ahora apunta a una ruta de actualización
-      form#modificar-orden-form(action=`/orden/actualizar-orden/${orden.id_Orden}` method="POST")
-        .form-group
-          label Paciente:
-          p #{paciente.nombre} #{paciente.apellido} (DNI: #{orden.dni})
-          input(type="hidden" name="id_paciente" value=orden.id_Paciente)
 
-        // MODIFICADO: Se muestra el estado real, ya no se puede editar manualmente
-        .form-group
-          label Estado Actual de la Orden:
-          p.form-control-static 
-            strong #{orden.estado}
+    if successMessages && successMessages.length > 0
+      .alert.alert-success.alert-dismissible.fade.show(role="alert")
+        = successMessages[0]
+        button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
 
-        .form-group
-          label Exámenes:
-          input#examSearch.form-control(type="text" placeholder="Buscar y agregar exámenes...")
-          ul#examResults.list-group
-          
-          label(for="examenes") Exámenes seleccionados:
-          .selected-exams-container#selectedExamsList
-            // Los exámenes existentes se cargarán aquí desde el script
-          
-          // Inputs ocultos para manejar los cambios
-          input#examenesSelectedIds(name="examenesSelectedIds" type="hidden")
-          input#examenesRemovedIds(name="examenesRemovedIds" type="hidden")
+    form#modificar-orden-form(action=`/orden/actualizar-orden/${orden.id_Orden}` method="POST")
+      .form-group
+        label Paciente:
+        p.fw-bold #{paciente.nombre} #{paciente.apellido} (DNI: #{orden.dni})
+        input(type="hidden" name="id_paciente" value=orden.id_Paciente)
 
-        // MODIFICADO: El contenedor de muestras ahora es un placeholder que llenará el script
-        .form-group
-          label Tipos de Muestra Requeridos:
-          #tiposMuestraContainer
-            p (Las muestras requeridas aparecerán aquí según los exámenes seleccionados)
-
-        .form-group
-          button.btn.btn-primary(type="submit") Guardar Cambios
-          a.btn.btn-secondary(href="/orden/ordenesAnalitica") Volver
-
-    script.
-      // --- SCRIPT COMPLETAMENTE REESCRITO ---
-
-      // Datos iniciales pasados desde el backend
-      const todosLosExamenes = !{JSON.stringify(examenes)};
-      const ordenOriginal = !{JSON.stringify(orden)};
-      const muestrasOriginales = ordenOriginal.Muestras || [];
-      const examenesOriginales = ordenOriginal.OrdenesExamenes || []; // <-- CORRECCIÓN
-
-      // Elementos del DOM
-      const examSearchInput = document.getElementById("examSearch");
-      const examResults = document.getElementById("examResults");
-      const selectedExamsList = document.getElementById("selectedExamsList");
-      const examenesSelectedIdsInput = document.getElementById("examenesSelectedIds");
-      const examenesRemovedIdsInput = document.getElementById("examenesRemovedIds");
-      const tiposMuestraContainer = document.getElementById("tiposMuestraContainer");
+      .form-group
+        label Estado Actual de la Orden:
+        p.form-control-static 
+          strong #{orden.estado}
       
-      const examenesEliminados = new Set();
+      .form-group
+        label(for="diagnostico") Diagnóstico (Presuntivo):
+        input.form-control(type="text" name="diagnostico" value=orden.diagnostico || '')
 
-      function agregarExamen(examen) {
-        // Evitar duplicados
-        if (document.querySelector(`.selected-exam[data-id-examen="${examen.id_examen}"]`)) {
-          return;
+      .form-group
+        label(for="examSearch") Exámenes:
+        input#examSearch.form-control(type="text" placeholder="Buscar y agregar exámenes...")
+        ul#examResults.list-group
+
+      label.mt-2(for="examenes") Exámenes seleccionados:
+      .selected-exams-container#selectedExamsList
+      input#examenesSelectedIds(name="examenesSelectedIds" type="hidden")
+      
+      .form-group.mt-3
+        label Tipos de Muestra Requeridos:
+        #tiposMuestraContainer
+          p.text-muted (Las muestras requeridas aparecerán aquí)
+
+      .form-group.mt-4
+        button.btn.btn-primary(type="submit") Guardar Cambios
+        button.btn.btn-danger.ms-2(type="button" data-bs-toggle="modal" data-bs-target="#cancelOrderModal") Cancelar Orden
+        button.btn.btn-secondary.ms-2(type="button" onclick="history.back()") Volver
+  .modal.fade#cancelOrderModal(tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true")
+    .modal-dialog
+            .modal-content
+                .modal-header
+                    h5.modal-title#cancelModalLabel Cancelar Orden de Trabajo
+                    button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                .modal-body
+
+                    form#cancel-order-form(action=`/buscarOrdenes/cancelar-orden/${orden.id_Orden}` method="POST")
+                        .mb-3
+                            label.form-label(for="motivoCancelacion") Por favor, ingrese el motivo de la cancelación:
+                            textarea#motivoCancelacion.form-control(name="motivoCancelacion" rows="3" required)
+                .modal-footer
+                    button.btn.btn-secondary(type="button" onclick="history.back()") Volver
+
+                    button.btn.btn-danger(type="submit" form="cancel-order-form") Confirmar Cancelación
+
+
+
+
+  script.
+
+
+    const todosLosExamenes = !{JSON.stringify(examenes)};
+    const ordenOriginal = !{JSON.stringify(orden)};
+    const muestrasOriginales = ordenOriginal.Muestras || [];
+    const examenesOriginales = ordenOriginal.OrdenesExamenes || [];
+
+    const examSearchInput = document.getElementById("examSearch");
+    const examResults = document.getElementById("examResults");
+    const selectedExamsList = document.getElementById("selectedExamsList");
+    const examenesSelectedIdsInput = document.getElementById("examenesSelectedIds");
+    const tiposMuestraContainer = document.getElementById("tiposMuestraContainer");
+
+
+
+    function agregarExamen(examen) {
+      if (document.querySelector(`.selected-exam[data-id-examen="${examen.id_examen}"]`)) return;
+
+      const div = document.createElement("div");
+      div.className = "selected-exam";
+      div.dataset.idExamen = examen.id_examen;
+      div.innerHTML = `<span>${examen.nombre_examen}</span><button type="button">✖</button>`;
+      
+      div.querySelector("button").addEventListener("click", () => {
+        div.remove();
+        actualizarTodo();
+      });
+
+      selectedExamsList.appendChild(div);
+    }
+
+    function actualizarTiposMuestra() {
+      const examenesSeleccionados = Array.from(selectedExamsList.children).map(div => parseInt(div.dataset.idExamen));
+      const tiposMuestraRequeridos = new Map();
+
+      examenesSeleccionados.forEach(id => {
+        const examen = todosLosExamenes.find(e => e.id_examen === id);
+        if (examen && examen.tipoMuestra) {
+          tiposMuestraRequeridos.set(examen.tipoMuestra.tipoDeMuestra, examen.tipoMuestra);
         }
+      });
+
+      tiposMuestraContainer.innerHTML = "";
+
+      if (tiposMuestraRequeridos.size === 0) {
+        tiposMuestraContainer.innerHTML = '<p class="text-muted">(No se requieren muestras)</p>';
+        return;
+      }
+      
+      tiposMuestraRequeridos.forEach((tipo, nombreTipoMuestra) => {
+        const muestraOriginal = muestrasOriginales.find(m => m.idTipoMuestra === tipo.idTipoMuestra);
+        const estaIngresada = muestraOriginal && muestraOriginal.estado !== 'pendiente';
+        const tipoId = nombreTipoMuestra.replace(/\s+/g, '');
 
         const div = document.createElement("div");
-        div.className = "selected-exam";
-        div.dataset.idExamen = examen.id_examen;
-        div.innerHTML = `<span>${examen.nombre_examen}</span><button type="button">✖</button>`;
-        
-        div.querySelector("button").addEventListener("click", () => {
-          // Si el examen era uno de los originales, se añade a la lista de eliminados
-          const esOriginal = examenesOriginales.some(e => e.id_examen == examen.id_examen);
-          if (esOriginal) {
-            examenesEliminados.add(examen.id_examen);
-          }
-          div.remove();
-          actualizarInputsOcultos();
-          actualizarTiposMuestra();
-        });
+        div.className = "form-check";
+        div.innerHTML = `
+          <input class="form-check-input" type="checkbox" name="tipos_muestra" value="${nombreTipoMuestra}" id="check_${tipoId}" ${estaIngresada ? 'checked' : ''}>
+          <label class="form-check-label" for="check_${tipoId}">${nombreTipoMuestra}</label>
+          <input type="hidden" name="estado_muestra_${nombreTipoMuestra}" value="${estaIngresada ? 'ingresada' : 'pendiente'}">
+        `;
+        tiposMuestraContainer.appendChild(div);
 
-        selectedExamsList.appendChild(div);
-      }
-
-      function actualizarTiposMuestra() {
-        const examenesSeleccionados = Array.from(selectedExamsList.children).map(div => parseInt(div.dataset.idExamen));
-        
-        const tiposMuestraRequeridos = new Map();
-        examenesSeleccionados.forEach(id => {
-          const examen = todosLosExamenes.find(e => e.id_examen === id);
-          if (examen && examen.tipoMuestra) {
-            tiposMuestraRequeridos.set(examen.tipoMuestra.tipoDeMuestra, examen.tipoMuestra.idTipoMuestra);
-          }
-        });
-
-        tiposMuestraContainer.innerHTML = ""; // Limpiar contenedor
-
-        if (tiposMuestraRequeridos.size === 0) {
-          tiposMuestraContainer.innerHTML = '<p>(No se requieren muestras para los exámenes seleccionados)</p>';
-          return;
-        }
-        
-        tiposMuestraRequeridos.forEach((idTipoMuestra, nombreTipoMuestra) => {
-          const muestraOriginal = muestrasOriginales.find(m => m.idTipoMuestra === idTipoMuestra);
-          // La muestra se considera 'ingresada' si existía y su estado no era 'pendiente'
-          const estaIngresada = muestraOriginal && muestraOriginal.estado !== 'pendiente';
-
-          const div = document.createElement("div");
-          div.className = "form-check";
-          
-          div.innerHTML = `
-            <input class="form-check-input" type="checkbox" name="tipos_muestra" value="${nombreTipoMuestra}" id="check_${idTipoMuestra}" ${estaIngresada ? 'checked' : ''}>
-            <label class="form-check-label" for="check_${idTipoMuestra}">${nombreTipoMuestra}</label>
-            <input type="hidden" name="estado_muestra_${nombreTipoMuestra}" value="${estaIngresada ? 'ingresada' : 'pendiente'}">
-          `;
-
-          tiposMuestraContainer.appendChild(div);
-
-          // Añadir evento para actualizar el input oculto
-          const checkbox = div.querySelector(`#check_${idTipoMuestra}`);
-          const hiddenInput = div.querySelector(`input[type=hidden]`);
-          checkbox.addEventListener('change', () => {
-            hiddenInput.value = checkbox.checked ? 'ingresada' : 'pendiente';
-          });
-        });
-      }
-
-      function actualizarInputsOcultos() {
-        const idsSeleccionados = Array.from(selectedExamsList.children).map(div => div.dataset.idExamen);
-        examenesSelectedIdsInput.value = idsSeleccionados.join(',');
-        examenesRemovedIdsInput.value = Array.from(examenesEliminados).join(',');
-      }
-
-      // --- INICIALIZACIÓN ---
-      document.addEventListener('DOMContentLoaded', () => {
-        // Cargar los exámenes que ya tiene la orden
-        examenesOriginales.forEach(oe => {
-            agregarExamen(oe.Examen);
-        });
-
-        // Cargar los tipos de muestra iniciales
-        actualizarTiposMuestra();
-        actualizarInputsOcultos();
-
-        // Configurar buscador de exámenes
-        examSearchInput.addEventListener("input", () => {
-          const searchTerm = examSearchInput.value.toLowerCase();
-          examResults.innerHTML = "";
-          if (!searchTerm) return;
-          
-          todosLosExamenes
-            .filter(examen => examen.nombre_examen.toLowerCase().includes(searchTerm))
-            .forEach(examen => {
-              const li = document.createElement("li");
-              li.className = "list-group-item list-group-item-action";
-              li.textContent = examen.nombre_examen;
-              li.addEventListener("click", () => {
-                agregarExamen(examen);
-                examSearchInput.value = "";
-                examResults.innerHTML = "";
-                actualizarInputsOcultos();
-                actualizarTiposMuestra();
-              });
-              examResults.appendChild(li);
-            });
+        const checkbox = div.querySelector(`#check_${tipoId}`);
+        const hiddenInput = div.querySelector(`input[type=hidden]`);
+        checkbox.addEventListener('change', () => {
+          hiddenInput.value = checkbox.checked ? 'ingresada' : 'pendiente';
         });
       });
+    }
+
+    function actualizarInputsOcultos() {
+      const idsSeleccionados = Array.from(selectedExamsList.children).map(div => div.dataset.idExamen);
+      examenesSelectedIdsInput.value = idsSeleccionados.join(',');
+    }
+
+    function actualizarTodo() {
+      actualizarInputsOcultos();
+      actualizarTiposMuestra();
+    }
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+      examenesOriginales.forEach(oe => {
+          if(oe.examen) {
+            agregarExamen(oe.examen);
+          }
+      });
+
+
+      actualizarTodo();
+
+      examSearchInput.addEventListener("input", () => {
+        const searchTerm = examSearchInput.value.toLowerCase();
+        examResults.innerHTML = "";
+        if (!searchTerm) return;
+        
+        todosLosExamenes
+          .filter(examen => examen.nombre_examen.toLowerCase().includes(searchTerm))
+          .forEach(examen => {
+            const li = document.createElement("li");
+            li.className = "list-group-item list-group-item-action";
+            li.textContent = examen.nombre_examen;
+            li.addEventListener("click", () => {
+              agregarExamen(examen);
+              examSearchInput.value = "";
+              examResults.innerHTML = "";
+              actualizarTodo();
+            });
+            examResults.appendChild(li);
+          });
+      });
+    });

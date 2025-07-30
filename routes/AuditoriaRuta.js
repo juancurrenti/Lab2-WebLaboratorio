@@ -1,9 +1,9 @@
-const Auditoria = require("../models/auditoria"); // Asegúrate de que esta ruta sea correcta
 const { Op } = require("sequelize");
-const Usuario = require("../models/User");
+
+const { Auditoria, Usuario } = require("../models");
 
 const auditoriaController = {
-  // Registrar una nueva auditoría
+
   registrar: async (usuarioId, operacion, detalles) => {
     try {
       await Auditoria.create({
@@ -14,31 +14,29 @@ const auditoriaController = {
       });
     } catch (error) {
       console.error("Error al registrar auditoría:", error);
-      throw error; // Lanza el error para que pueda ser manejado por el controlador de rutas
+      throw error;
     }
   },
 
-  // Método para recuperar auditorías con filtros opcionales y paginación
+
   listarAuditorias: async (filtros) => {
     const { fecha, descripcion, usuario, limit, offset } = filtros;
     const where = {};
   
-    // Filtro por fecha exacta
+
     if (fecha) {
       where.Fecha_Hora_Operacion = {
         [Op.gte]: new Date(fecha),
         [Op.lt]: new Date(new Date(fecha).setDate(new Date(fecha).getDate() + 1)),
       };
     }
-  
-    // Filtro de descripción
+
     if (descripcion) {
       where.Operacion_Realizada = {
         [Op.like]: `%${descripcion}%`,
       };
     }
-  
-    // Filtro de usuario
+
     if (usuario) {
       const usuarios = await Usuario.findAll({
         where: {
@@ -63,7 +61,7 @@ const auditoriaController = {
         where,
         limit,
         offset,
-        order: [['Fecha_Hora_Operacion', 'DESC']], // Ordenar de más reciente a más antigua
+        order: [['Fecha_Hora_Operacion', 'DESC']],
         include: [
           {
             model: Usuario,
@@ -81,10 +79,8 @@ const auditoriaController = {
       throw error;
     }
   },
-  
-  
 
-  // Método para buscar auditorías por descripción
+
   buscarPorDescripcion: async (descripcion) => {
     try {
       const auditorias = await Auditoria.findAll({

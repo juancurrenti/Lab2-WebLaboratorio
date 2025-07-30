@@ -3,144 +3,143 @@ extends layout
 block content
   head
     title Crear Examen
-    script(src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js")
-    link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css")
-    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js")
 
-  body
-    .container.margin-top-custom
-      h1 Crear Examen
-      form#crear-examen-form(action="/examen/crear-examen" method="post" onsubmit="return showModal()")
-        .form-group
-          label(for="nombre_examen") Nombre del Examen:
-          input#nombre_examen.form-control(type="text" name="nombre_examen" required)
-          div.invalid-feedback El nombre del examen solo puede contener letras, números, espacios y guiones.
+  .container-fluid
+    h1 Crear Examen
+    if error
+      p.text-danger.text-center.fw-bold.mb-3= error
+    form#crear-examen-form(action="/examen/crear-examen" method="post" onsubmit="return showModal()")
+      .form-group
+        label(for="nombre_examen") Nombre del Examen:
+        input#nombre_examen.form-control(type="text" name="nombre_examen" required)
+        div.invalid-feedback El nombre del examen solo puede contener letras, números, espacios y guiones.
 
-        .form-group
-          label(for="descripcion") Descripción del Examen:
-          textarea#descripcion.form-control(name="descripcion")
-          div.invalid-feedback La descripción no puede contener caracteres especiales no válidos.
+      .form-group
+        label(for="descripcion") Descripción del Examen:
+        textarea#descripcion.form-control(name="descripcion")
+        div.invalid-feedback La descripción no puede contener caracteres especiales no válidos.
 
-        .form-group
-          label(for="codigo") Código del Examen:
-          input#codigo.form-control(type="text" name="codigo" required)
+      .form-group
+        label(for="codigo") Código del Examen:
+        input#codigo.form-control(type="text" name="codigo" required)
 
-        .form-group
-          label(for="estado") Estado del Examen:
-          select#estado.form-control(name="estado" required)
-            option(value="" disabled selected) Selecciona un estado
-            option(value="1") Activo
-            option(value="0") Inactivo
-          div.invalid-feedback Por favor selecciona un estado.
+      .form-group
+        label(for="estado") Estado del Examen:
+        select#estado.form-control(name="estado" required)
+          option(value="" disabled selected) Selecciona un estado
+          option(value="1") Activo
+          option(value="0") Inactivo
+        div.invalid-feedback Por favor selecciona un estado.
 
-        .form-group
-          label(for="tiempo_demora") Tiempo de Demora (días):
-          input#tiempo_demora.form-control(type="number" name="tiempo_demora" min="1" max="90" required)
-          div.invalid-feedback El tiempo de demora debe estar entre 1 y 90 días.
+      .form-group
+        label(for="tiempo_demora") Tiempo de Demora (días):
+        input#tiempo_demora.form-control(type="number" name="tiempo_demora" min="1" max="90" required)
+        div.invalid-feedback El tiempo de demora debe estar entre 1 y 90 días.
 
-        .form-group
-          label(for="tipo_muestra") Tipo de Muestra:
-          select#tipo_muestra.form-control(name="idTipoMuestra" required)
-            option(value="" disabled selected) Selecciona un tipo de muestra
-            each tipo in tiposMuestra
-              option(value=tipo.idTipoMuestra) #{tipo.tipoDeMuestra}
-          div.invalid-feedback Por favor selecciona un tipo de muestra.
+      .form-group
+        label(for="tipo_muestra") Tipo de Muestra:
+        select#tipo_muestra.form-control(name="idTipoMuestra" required)
+          option(value="" disabled selected) Selecciona un tipo de muestra
+          each tipo in tiposMuestra
+            option(value=tipo.idTipoMuestra) #{tipo.tipoDeMuestra}
+        div.invalid-feedback Por favor selecciona un tipo de muestra.
 
-        button.btn.btn-primary(type="submit") Crear Examen
+      button.btn.btn-primary.mt-4(type="submit") Crear Examen
 
-    // Modal de confirmación
-    .modal#confirmationModal(tabindex="-1" role="dialog")
+
+    .modal.fade#confirmationModal(tabindex="-1" role="dialog")
       .modal-dialog(role="document")
         .modal-content
           .modal-header
             h5.modal-title Confirmación
-            button.close(type="button" data-dismiss="modal" aria-label="Close")
-              span(aria-hidden="true") &times;
+
+            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
           .modal-body
             p#modalContent Verifica los datos antes de confirmar.
           .modal-footer
-            button.btn.btn-secondary(type="button" data-dismiss="modal") Cancelar
+
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-primary(type="button" id="confirmSubmit") Confirmar
 
-    script.
-      const regexText = /^[a-zA-Z0-9\s-]+$/; // Letras, números, espacios y guiones
-      const regexDescripcion = /^[a-zA-Z0-9\s.,-]+$/; // Letras, números, espacios y algunos caracteres básicos
+  script.
+    const regexText = /^[a-zA-Z0-9\s-]+$/;
+    const regexDescripcion = /^[a-zA-Z0-9\s.,-]+$/;
 
-      const showModal = () => {
-        const nombreExamen = document.getElementById('nombre_examen');
-        const descripcion = document.getElementById('descripcion');
-        const codigo = document.getElementById('codigo').value;
-        const estado = document.getElementById('estado');
-        const tiempoDemora = document.getElementById('tiempo_demora');
-        const tipoMuestra = document.getElementById('tipo_muestra');
+    const showModal = () => {
+      const nombreExamen = document.getElementById('nombre_examen');
+      const descripcion = document.getElementById('descripcion');
+      const codigo = document.getElementById('codigo').value;
+      const estado = document.getElementById('estado');
+      const tiempoDemora = document.getElementById('tiempo_demora');
+      const tipoMuestra = document.getElementById('tipo_muestra');
 
-        let isValid = true;
+      let isValid = true;
 
-        // Validar nombre del examen
-        if (!regexText.test(nombreExamen.value.trim())) {
-          nombreExamen.classList.add('is-invalid');
-          isValid = false;
-        } else {
-          nombreExamen.classList.remove('is-invalid');
-        }
 
-        // Validar descripción
-        if (descripcion.value && !regexDescripcion.test(descripcion.value.trim())) {
-          descripcion.classList.add('is-invalid');
-          isValid = false;
-        } else {
-          descripcion.classList.remove('is-invalid');
-        }
+      if (!regexText.test(nombreExamen.value.trim())) {
+        nombreExamen.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        nombreExamen.classList.remove('is-invalid');
+      }
 
-        // Validar estado
-        if (!estado.value) {
-          estado.classList.add('is-invalid');
-          isValid = false;
-        } else {
-          estado.classList.remove('is-invalid');
-        }
 
-        // Validar tiempo de demora
-        const demoraValue = parseInt(tiempoDemora.value, 10);
-        if (isNaN(demoraValue) || demoraValue < 1 || demoraValue > 90) {
-          tiempoDemora.classList.add('is-invalid');
-          isValid = false;
-        } else {
-          tiempoDemora.classList.remove('is-invalid');
-        }
+      if (descripcion.value && !regexDescripcion.test(descripcion.value.trim())) {
+        descripcion.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        descripcion.classList.remove('is-invalid');
+      }
 
-        // Validar tipo de muestra
-        if (!tipoMuestra.value) {
-          tipoMuestra.classList.add('is-invalid');
-          isValid = false;
-        } else {
-          tipoMuestra.classList.remove('is-invalid');
-        }
+      if (!estado.value) {
+        estado.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        estado.classList.remove('is-invalid');
+      }
 
-        if (!isValid) {
-          return false; // Detener envío si hay errores
-        }
+      const demoraValue = parseInt(tiempoDemora.value, 10);
+      if (isNaN(demoraValue) || demoraValue < 1 || demoraValue > 90) {
+        tiempoDemora.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        tiempoDemora.classList.remove('is-invalid');
+      }
 
-        // Rellenar contenido del modal
-        const estadoText = estado.value === "1" ? "Activo" : "Inactivo";
-        const tipoMuestraText = tipoMuestra.options[tipoMuestra.selectedIndex].text;
-        const descripcionText = descripcion.value || "N/A";
 
-        const modalContent = `
-          <strong>Nombre del Examen:</strong> ${nombreExamen.value.trim()}<br>
-          <strong>Descripción:</strong> ${descripcionText}<br>
-          <strong>Código:</strong> ${codigo}<br>
-          <strong>Estado:</strong> ${estadoText}<br>
-          <strong>Tiempo de Demora:</strong> ${tiempoDemora.value} días<br>
-          <strong>Tipo de Muestra:</strong> ${tipoMuestraText}
-        `;
-        document.getElementById('modalContent').innerHTML = modalContent;
+      if (!tipoMuestra.value) {
+        tipoMuestra.classList.add('is-invalid');
+        isValid = false;
+      } else {
+        tipoMuestra.classList.remove('is-invalid');
+      }
 
-        // Mostrar modal
-        $('#confirmationModal').modal('show');
+      if (!isValid) {
         return false;
-      };
+      }
 
-      document.getElementById('confirmSubmit').addEventListener('click', () => {
-        document.getElementById('crear-examen-form').submit();
-      });
+
+      const estadoText = estado.value === "1" ? "Activo" : "Inactivo";
+      const tipoMuestraText = tipoMuestra.options[tipoMuestra.selectedIndex].text;
+      const descripcionText = descripcion.value || "N/A";
+
+      const modalContent = `
+        <strong>Nombre del Examen:</strong> ${nombreExamen.value.trim()}<br>
+        <strong>Descripción:</strong> ${descripcionText}<br>
+        <strong>Código:</strong> ${codigo}<br>
+        <strong>Estado:</strong> ${estadoText}<br>
+        <strong>Tiempo de Demora:</strong> ${tiempoDemora.value} días<br>
+        <strong>Tipo de Muestra:</strong> ${tipoMuestraText}
+      `;
+      document.getElementById('modalContent').innerHTML = modalContent;
+
+
+      const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+      confirmationModal.show();
+      
+      return false;
+    };
+
+    document.getElementById('confirmSubmit').addEventListener('click', () => {
+      document.getElementById('crear-examen-form').submit();
+    });

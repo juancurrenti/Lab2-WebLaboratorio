@@ -3,26 +3,23 @@ extends layout
 block content
   head
     title Valores de Referencia
-    link(href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet")
-    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js")
 
-  .container.margin-top-custom
+  .container-fluid.margin-top-custom
     h1.mt-4 Valores de Referencia
+
+    // Contenedor para mensajes de validación
+    #message-placeholder
 
     // Buscar Determinación
     .form-group.position-relative
       label(for="buscar_determinacion") Buscar Determinación:
       input#buscar_determinacion.form-control(type="text" placeholder="Escribe para buscar…" autocomplete="off")
-
-      // Resultados de búsqueda ocultos
       #resultados_busqueda(style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; display: none;")
         ul#lista_resultados.list-group
-
-      // Select oculto
       select#id_Determinacion.form-control(name="id_Determinacion" required style="display: none;")
         each determinacion in determinaciones
           option(value=determinacion.id_Determinacion data-unidad=determinacion.unidadMedida.nombreUnidadMedida data-examen=determinacion.examen.nombre_examen)
-            | #{determinacion.Nombre_Determinacion} - Examen: #{determinacion.examen.nombre_examen}
+            | #{determinacion.Nombre_Determinacion}
 
     // Tabla de Valores de Referencia
     .mt-4
@@ -41,191 +38,220 @@ block content
         tbody#valoresReferenciaBody
 
       button#addValorReferencia.btn.btn-primary.mt-2(type="button" style="display: none;") Agregar Valor de Referencia
-      button#saveValoresReferencia.btn.btn-success.mt-2(type="button" style="display: none;") Guardar Valores de Referencia
+      button#saveValoresReferencia.btn.btn-success.mt-2.ms-2(type="button" style="display: none;") Guardar Valores de Referencia
+      button#volverBtn.btn.btn-secondary.mt-2.ms-2(type="button" style="display: none;") Volver
 
     // Modal Confirmación de Datos
-    .modal#confirmationModal(tabindex="-1" role="dialog")
+    .modal.fade#confirmationModal(tabindex="-1" role="dialog")
       .modal-dialog(role="document")
         .modal-content
           .modal-header
             h5.modal-title Confirmación de Datos
-            button.close(type="button" data-bs-dismiss="modal" aria-label="Close")
-              span(aria-hidden="true") ×
+            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
           .modal-body
-            p#modalContent Aquí aparecerán los datos a enviar.
+            div#modalContent
           .modal-footer
             button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button#confirmSubmit.btn.btn-primary(type="button") Confirmar
 
-    // Modal Confirmación de Eliminación
-    .modal#deleteModal(tabindex="-1" role="dialog")
+    // Modal para Confirmación de Eliminación o para mostrar Errores
+    .modal.fade#deleteModal(tabindex="-1" role="dialog")
       .modal-dialog(role="document")
         .modal-content
           .modal-header
-            h5.modal-title Confirmación de Eliminación
-            button.close(type="button" data-bs-dismiss="modal" aria-label="Close")
-              span(aria-hidden="true") ×
+            h5.modal-title#deleteModalTitle Confirmación
+            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
           .modal-body
-            p#deleteModalContent ¿Estás seguro de eliminar el valor de referencia?
+            p#deleteModalContent
           .modal-footer
-            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cerrar
             button#confirmDelete.btn.btn-danger(type="button") Eliminar
 
-    script.
-      $(function() {
-        const determinaciones = !{JSON.stringify(determinaciones)};
+  script.
+    $(function() {
+      const determinaciones = !{JSON.stringify(determinaciones)};
+      let idValorReferenciaAEliminar = null;
 
-        // Buscar determinación
-        $('#buscar_determinacion').on('input', function() {
-          const q = $(this).val().toLowerCase();
-          const $lista = $('#lista_resultados').empty();
 
-          if (q.length > 0) {
-            determinaciones.forEach(d => {
-              if (d.Nombre_Determinacion.toLowerCase().includes(q)) {
-                $lista.append(`
-                  <li
-                    class="resultado list-group-item list-group-item-action"
-                    data-id="${d.id_Determinacion}"
-                    data-unidad="${d.unidadMedida.nombreUnidadMedida}"
-                    data-examen="${d.examen.nombre_examen}"
-                  >
-                    <div><strong>${d.Nombre_Determinacion}</strong></div>
-                    <div><small>Examen: ${d.examen.nombre_examen}</small></div>
-                  </li>
-                `);
-              }
-            });
-            $('#resultados_busqueda').show();
-          } else {
-            $('#resultados_busqueda').hide();
-          }
-        });
-
-        // Seleccionar determinación
-        $(document).on('click', '.resultado', async function() {
-          const id = $(this).data('id');
-          const unidadMedida = $(this).data('unidad');
-          const nombre = $(this).text();
-          const examen = $(this).data('examen');
-          $('#id_Determinacion').val(id);
-          $('#buscar_determinacion').val(nombre);
-          $('#unidad_medida').text(unidadMedida);
-          $('#examen_nombre').text(examen);
-          $('#resultados_busqueda').hide();
-
-          try {
-            const response = await $.get(`/valoresreferencia/valores/${id}`);
-            const valoresReferencia = response.valoresReferencia;
-            $('#valoresReferenciaBody').empty();
-            valoresReferencia.forEach(vr => addRow(vr, unidadMedida));
-            $('#addValorReferencia, #saveValoresReferencia').show();
-          } catch (error) {
-            console.error('Error al obtener los valores de referencia:', error);
-          }
-        });
-
-        // Agregar fila
-        $('#addValorReferencia').on('click', function() {
-          addRow({}, $('#unidad_medida').text());
-        });
-
-        function addRow(vr={}, unidadMedida='') {
-          const row = `
-            <tr data-id="${vr.id_ValorReferencia||''}">
-              <td><input type="number" class="form-control" name="Edad_Minima" value="${vr.Edad_Minima||''}" required></td>
-              <td><input type="number" class="form-control" name="Edad_Maxima" value="${vr.Edad_Maxima||''}" required></td>
-              <td><select class="form-control" name="Sexo" required>
-                  <option value="M" ${vr.Sexo==='M'?'selected':''}>Masculino</option>
-                  <option value="F" ${vr.Sexo==='F'?'selected':''}>Femenino</option>
-                  <option value="A" ${vr.Sexo==='A'?'selected':''}>Ambos Sexos</option>
-                </select></td>
-              <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Minimo" value="${vr.Valor_Referencia_Minimo||''}" required></td>
-              <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Maximo" value="${vr.Valor_Referencia_Maximo||''}" required></td>
-              <td><select class="form-control" name="Estado" required>
-                  <option value="1" ${vr.Estado===1?'selected':''}>Activo</option>
-                  <option value="0" ${vr.Estado===0?'selected':''}>Inactivo</option>
-                </select></td>
-              <td>${unidadMedida}</td>
-              <td><button type="button" class="btn btn-danger btn-sm delete-row">Eliminar</button></td>
-            </tr>`;
-          $('#valoresReferenciaBody').append(row);
-        }
-
-        // Confirmar eliminación
-        $(document).on('click', '.delete-row', function() {
-          const row = $(this).closest('tr');
-          const id = row.data('id');
-          if (!id) {
-            row.remove();
-          } else {
-            idValorReferenciaAEliminar = id;
-            $('#deleteModalContent').text(`¿Estás seguro de eliminar el valor de referencia para "${$('#buscar_determinacion').val()}"?`);
-            new bootstrap.Modal($('#deleteModal')[0]).show();
-          }
-        });
-
-        $('#confirmDelete').on('click', function() {
-          if (!idValorReferenciaAEliminar) return;
-          $.ajax({ url:`/valoresreferencia/eliminar/${idValorReferenciaAEliminar}`, method:'DELETE',
-            success: function() { location.reload(); },
-            error: function(err) { console.error(err); }
-          });
-        });
-
-        // Guardar valores
-        $('#saveValoresReferencia').on('click', function() {
-          const idDet = $('#id_Determinacion').val();
-          if (!idDet) return;
-          const rows = $('#valoresReferenciaBody tr');
-          const valoresReferencia = [];
-          let allValid = true;
-          rows.each(function() {
-            const r = $(this);
-            const min = r.find('input[name="Edad_Minima"]').val();
-            const max = r.find('input[name="Edad_Maxima"]').val();
-            const sex = r.find('select[name="Sexo"]').val();
-            const vMin = r.find('input[name="Valor_Referencia_Minimo"]').val();
-            const vMax = r.find('input[name="Valor_Referencia_Maximo"]').val();
-            const est = r.find('select[name="Estado"]').val();
-            if (!min||!max||!sex||!vMin||!vMax||!est) {
-              allValid = false;
-              r.find('input,select').each(function(){ if(!$(this).val()) $(this).addClass('is-invalid'); });
-            } else {
-              r.find('input,select').removeClass('is-invalid');
-              valoresReferencia.push({
-                id_ValorReferencia: r.data('id')||null,
-                Edad_Minima:min,
-                Edad_Maxima:max,
-                Sexo:sex,
-                Valor_Referencia_Minimo:vMin,
-                Valor_Referencia_Maximo:vMax,
-                Estado:parseInt(est,10)
-              });
+      $('#buscar_determinacion').on('input', function() {
+        const q = $(this).val().toLowerCase();
+        const $lista = $('#lista_resultados').empty();
+        if (q.length > 0) {
+          determinaciones.forEach(d => {
+            if (d.Nombre_Determinacion.toLowerCase().includes(q)) {
+              $lista.append(`<li class="resultado list-group-item list-group-item-action" data-id="${d.id_Determinacion}" data-unidad="${d.unidadMedida.nombreUnidadMedida}" data-examen="${d.examen.nombre_examen}"><div><strong>${d.Nombre_Determinacion}</strong></div><div><small>Examen: ${d.examen.nombre_examen}</small></div></li>`);
             }
           });
-          if (!allValid) return;
-          if (!valoresReferencia.length) return;
+          $('#resultados_busqueda').show();
+        } else {
+          $('#resultados_busqueda').hide();
+        }
+      });
 
-          const resumen = valoresReferencia.map((vr,i)=>`
-            <strong>Valor ${i+1}:</strong><br>
-            Edad Mín:${vr.Edad_Minima}<br>
-            Edad Máx:${vr.Edad_Maxima}<br>
-            Sexo:${vr.Sexo}<br>
-            Valor Min:${vr.Valor_Referencia_Minimo}<br>
-            Valor Máx:${vr.Valor_Referencia_Maximo}<br>
-            Estado:${vr.Estado===1?'Activo':'Inactivo'}<br><br>
-          `).join('');
-          $('#modalContent').html(resumen);
-          new bootstrap.Modal($('#confirmationModal')[0]).show();
 
-          $('#confirmSubmit').off('click').on('click', function() {
-            $.ajax({
-              url:'/valoresreferencia/guardar-valores', method:'POST', contentType:'application/json',
-              data:JSON.stringify({ id_Determinacion:idDet, valoresReferencia }),
-              success:function(){ location.reload(); },
-              error:function(err){ console.error(err); }
-            });
-          });
+      $(document).on('click', '.resultado', async function() {
+        const id = $(this).data('id');
+        const unidadMedida = $(this).data('unidad');
+        const nombreCompleto = `${$(this).find('strong').text()} (Examen: ${$(this).data('examen')})`;
+        $('#id_Determinacion').val(id);
+        $('#buscar_determinacion').val(nombreCompleto);
+        $('#resultados_busqueda').hide();
+        try {
+          const response = await $.get(`/valoresreferencia/valores/${id}`);
+          $('#valoresReferenciaBody').empty();
+          response.valoresReferencia.forEach(vr => addRow(vr, unidadMedida));
+          $('#addValorReferencia, #saveValoresReferencia, #volverBtn').show();
+        } catch (error) {
+          console.error('Error al obtener los valores de referencia:', error);
+        }
+      });
+      
+
+      $(document).on('click', '#volverBtn', function() {
+        history.back();
+      });
+
+
+      $('#addValorReferencia').on('click', function() {
+        const unidad = determinaciones.find(d => d.id_Determinacion == $('#id_Determinacion').val())?.unidadMedida?.nombreUnidadMedida || '';
+        addRow({}, unidad);
+      });
+
+      function addRow(vr={}, unidadMedida='') {
+        const row = `
+          <tr data-id="${vr.id_ValorReferencia || ''}">
+            <td><input type="number" class="form-control" name="Edad_Minima" value="${vr.Edad_Minima != null ? vr.Edad_Minima : ''}" required></td>
+            <td><input type="number" class="form-control" name="Edad_Maxima" value="${vr.Edad_Maxima != null ? vr.Edad_Maxima : ''}" required></td>
+            <td><select class="form-control" name="Sexo" required><option value="M" ${vr.Sexo==='M'?'selected':''}>Masculino</option><option value="F" ${vr.Sexo==='F'?'selected':''}>Femenino</option><option value="A" ${vr.Sexo==='A'?'selected':''}>Ambos Sexos</option></select></td>
+            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Minimo" value="${vr.Valor_Referencia_Minimo != null ? vr.Valor_Referencia_Minimo : ''}" required></td>
+            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Maximo" value="${vr.Valor_Referencia_Maximo != null ? vr.Valor_Referencia_Maximo : ''}" required></td>
+            <td><select class="form-control" name="Estado" required><option value="1" ${vr.Estado === 1 || vr.Estado === undefined ? 'selected' : ''}>Activo</option><option value="0" ${vr.Estado === 0 ? 'selected' : ''}>Inactivo</option></select></td>
+            <td>${unidadMedida}</td>
+            <td><button type="button" class="btn btn-danger btn-sm delete-row">Eliminar</button></td>
+          </tr>`;
+        $('#valoresReferenciaBody').append(row);
+      }
+
+
+      $(document).on('click', '.delete-row', function() {
+        const row = $(this).closest('tr');
+        const id = row.data('id');
+        if (!id) {
+          row.remove();
+        } else {
+          idValorReferenciaAEliminar = id;
+          $('#deleteModalTitle').text('Confirmar Eliminación');
+          $('#deleteModalContent').text('¿Estás seguro de eliminar este valor de referencia?');
+          $('#confirmDelete').show();
+          new bootstrap.Modal($('#deleteModal')[0]).show();
+        }
+      });
+      $('#confirmDelete').on('click', function() {
+        if (!idValorReferenciaAEliminar) return;
+        $.ajax({ url:`/valoresreferencia/eliminar/${idValorReferenciaAEliminar}`, method:'DELETE',
+          success: function() { location.reload(); },
+          error: function(err) { console.error(err); }
         });
       });
+
+
+      $('#saveValoresReferencia').on('click', function() {
+        const idDet = $('#id_Determinacion').val();
+        if (!idDet) return;
+
+        $('#message-placeholder').empty();
+        const rows = $('#valoresReferenciaBody tr');
+        const valoresReferencia = [];
+        let allValid = true;
+        let errorMessage = '';
+
+        rows.each(function() {
+          const r = $(this);
+          const minEdad = parseFloat(r.find('input[name="Edad_Minima"]').val());
+          const maxEdad = parseFloat(r.find('input[name="Edad_Maxima"]').val());
+          const vMin = parseFloat(r.find('input[name="Valor_Referencia_Minimo"]').val());
+          const vMax = parseFloat(r.find('input[name="Valor_Referencia_Maximo"]').val());
+          
+          r.find('input,select').removeClass('is-invalid');
+
+          if (isNaN(minEdad) || isNaN(maxEdad) || isNaN(vMin) || isNaN(vMax)) {
+            allValid = false;
+            errorMessage = 'Por favor, completa todos los campos requeridos.';
+            r.find('input[required]').each(function(){ if(!$(this).val()) $(this).addClass('is-invalid'); });
+            return false;
+          }
+          if (minEdad > maxEdad) {
+            allValid = false;
+            errorMessage = `Error: La Edad Mínima (${minEdad}) no puede ser mayor que la Edad Máxima (${maxEdad}).`;
+            r.find('input[name="Edad_Minima"], input[name="Edad_Maxima"]').addClass('is-invalid');
+            return false;
+          }
+          if (vMin > vMax) {
+            allValid = false;
+            errorMessage = `Error: El Valor Mínimo (${vMin}) no puede ser mayor que el Valor Máximo (${vMax}).`;
+            r.find('input[name="Valor_Referencia_Minimo"], input[name="Valor_Referencia_Maximo"]').addClass('is-invalid');
+            return false;
+          }
+
+          valoresReferencia.push({
+            id_ValorReferencia: r.data('id')||null,
+            Edad_Minima: minEdad,
+            Edad_Maxima: maxEdad,
+            Sexo: r.find('select[name="Sexo"]').val(),
+            Valor_Referencia_Minimo: vMin,
+            Valor_Referencia_Maximo: vMax,
+            Estado: parseInt(r.find('select[name="Estado"]').val(), 10)
+          });
+        });
+
+        if (!allValid) {
+          $('#message-placeholder').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        if (!valoresReferencia.length) return;
+
+        const resumen = valoresReferencia.map((vr,i)=>`<p><strong>Valor ${i+1}:</strong> Edad (${vr.Edad_Minima}-${vr.Edad_Maxima}), Sexo: ${vr.Sexo}, Rango: ${vr.Valor_Referencia_Minimo}-${vr.Valor_Referencia_Maximo}</p>`).join('');
+        $('#modalContent').html(resumen);
+        new bootstrap.Modal($('#confirmationModal')[0]).show();
+      });
+
+
+      $('#confirmSubmit').off('click').on('click', function() {
+        const idDet = $('#id_Determinacion').val();
+        const valoresReferencia = [];
+        $('#valoresReferenciaBody tr').each(function() {
+            const r = $(this);
+            valoresReferencia.push({
+              id_ValorReferencia: r.data('id')||null,
+              Edad_Minima: r.find('input[name="Edad_Minima"]').val(),
+              Edad_Maxima: r.find('input[name="Edad_Maxima"]').val(),
+              Sexo: r.find('select[name="Sexo"]').val(),
+              Valor_Referencia_Minimo: r.find('input[name="Valor_Referencia_Minimo"]').val(),
+              Valor_Referencia_Maximo: r.find('input[name="Valor_Referencia_Maximo"]').val(),
+              Estado: parseInt(r.find('select[name="Estado"]').val(), 10)
+            });
+        });
+
+        $.ajax({
+          url:'/valoresreferencia/guardar-valores',
+          method:'POST',
+          contentType:'application/json',
+          data:JSON.stringify({ id_Determinacion:idDet, valoresReferencia: valoresReferencia })
+        })
+        .done(function() {
+            location.reload();
+        })
+        .fail(function(jqXHR) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+            if (modal) modal.hide();
+            
+            const errorMsg = jqXHR.responseJSON ? jqXHR.responseJSON.error : "Ocurrió un error inesperado.";
+            
+            $('#deleteModalTitle').text('Error de Validación');
+            $('#deleteModalContent').text(errorMsg);
+            $('#confirmDelete').hide();
+            new bootstrap.Modal($('#deleteModal')[0]).show();
+        });
+      });
+    });

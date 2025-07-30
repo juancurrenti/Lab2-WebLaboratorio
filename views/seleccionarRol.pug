@@ -1,0 +1,55 @@
+extends layout
+
+
+
+block content
+
+  style.
+    .seleccionar-rol-container {
+      max-width: 600px;
+      margin: 5rem auto;
+      padding: 2rem;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .seleccionar-rol-container h1 {
+      margin-bottom: 1rem;
+    }
+    .seleccionar-rol-container p {
+      font-size: 1.1rem;
+      color: #6c757d;
+      margin-bottom: 2rem;
+    }
+    .rol-options .btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 500;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    .rol-options .btn i {
+      margin-right: 10px;
+    }
+
+  .seleccionar-rol-container
+
+    h1 ¡Hola, #{usuario.nombre}!
+    
+    p 
+      | Detectamos que tienes más de un perfil en nuestro sistema.
+      br
+      | Por favor, selecciona cómo deseas continuar.
+
+
+    .rol-options
+
+      a.btn.btn-primary(href=`/${usuario.rolEmpleado}`)
+        i.fas.fa-briefcase
+
+        | Acceder como #{usuario.rolEmpleado}
+        
+      a.btn.btn-secondary(href="/portal-paciente")
+        i.fas.fa-user-injured
+        | Ver mi Portal de Paciente

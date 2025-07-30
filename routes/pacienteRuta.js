@@ -1,164 +1,273 @@
 const express = require("express");
 const router = express.Router();
-
-const Paciente = require("../models/paciente");
-const Usuarios = require("../models/User");
-const { OrdenesTrabajo } = require("../models");
 const { Op } = require("sequelize");
-
 const bcrypt = require("bcrypt");
-const auditoriaController = require("../routes/AuditoriaRuta");
 const fs = require('fs');
 const path = require('path');
+const PDFDocument = require("pdfkit");
+
 const { checkRole } = require('../config/middlewares');
+
+
+const { sequelize, Paciente, Usuario, OrdenTrabajo } = require("../models");
+const auditoriaController = require("./AuditoriaRuta");
 const transporter = require("../config/mailConfig");
 
 
-
-// Muestra el formulario para ingresar un nuevo paciente
 router.get("/ingresar-paciente", (req, res) => {
-  const user = req.user;
-  if (!user || !user.dataValues) return res.status(401).send("Usuario no autenticado.");
-  res.render("ingresarPaciente", { paciente: null, mensaje: null });
+  res.render("ingresarPaciente", { pageTitle: 'Ingresar Paciente', paciente: null, mensaje: null });
 });
 
-// Muestra la página de búsqueda
+
 router.get("/buscar-paciente", (req, res) => {
-  const user = req.user;
-  if (!user || !user.dataValues) return res.status(401).send("Usuario no autenticado.");
-  res.render("busquedaPaciente");
+  res.render("busquedaPaciente", { pageTitle: 'Buscar Paciente' });
 });
 
-// Proporciona datos para la búsqueda dinámica en vivo
+
 router.get("/buscar-paciente-dinamico", async (req, res) => {
-  const { query } = req.query;
-  try {
-    const pacientes = await Paciente.findAll({
-      where: {
-        [Op.or]: [
-          { nombre: { [Op.like]: `%${query}%` } },
-          { apellido: { [Op.like]: `%${query}%` } },
-          { dni: { [Op.like]: `%${query}%` } },
-          { email: { [Op.like]: `%${query}%` } },
-          { telefono: { [Op.like]: `%${query}%` } },
-        ],
-      },
-      attributes: ["id_paciente", "nombre", "apellido", "dni", "email", "telefono"],
-    });
-    res.json(pacientes);
-  } catch (error) {
-    console.error("Error al buscar pacientes:", error);
-    res.status(500).json({ error: "Error al buscar pacientes" });
-  }
+    const { query, incluirInactivos } = req.query;
+    try {
+        let whereCondition = {
+            [Op.or]: [
+                { nombre: { [Op.like]: `%${query}%` } },
+                { apellido: { [Op.like]: `%${query}%` } },
+                { dni: { [Op.like]: `%${query}%` } },
+            ],
+        };
+
+        if (incluirInactivos !== 'true') {
+            whereCondition.estado = 'activo';
+        }
+
+        const pacientes = await Paciente.findAll({
+            where: whereCondition,
+            attributes: ["id_paciente", "nombre", "apellido", "dni", "estado"],
+        });
+        res.json(pacientes);
+    } catch (error) {
+        console.error("Error al buscar pacientes:", error);
+        res.status(500).json({ error: "Error al buscar pacientes" });
+    }
 });
 
-// Procesa el formulario de búsqueda y redirige a la página de edición
 router.post("/buscar-paciente", async (req, res) => {
-  const { searchType, searchTerm } = req.body;
-  try {
-    let whereCondition = {};
-    if (searchType === "dni") whereCondition.dni = searchTerm;
-    else if (searchType === "email") whereCondition.email = searchTerm;
-    else if (searchType === "apellido") {
-        const pacientes = await Paciente.findAll({ where: { apellido: searchTerm } });
-        if (pacientes.length > 1) return res.render("seleccionarPaciente", { pacientes, searchTerm, searchType });
-        if (pacientes.length === 1) return res.redirect(`/editar-paciente/${pacientes[0].id_paciente}`);
+    const { searchType, searchTerm, incluirInactivos } = req.body;
+    try {
+        let whereCondition = {};
+        if (!incluirInactivos) {
+            whereCondition.estado = 'activo';
+        }
+
+        if (searchType === "dni") {
+            whereCondition.dni = searchTerm;
+        } else if (searchType === "apellido") {
+            whereCondition.apellido = { [Op.like]: `%${searchTerm}%` };
+            const pacientes = await Paciente.findAll({ where: whereCondition });
+            if (pacientes.length > 1) return res.render("seleccionarPaciente", {pageTitle: 'Seleccionar Paciente', pacientes, searchTerm, searchType });
+            if (pacientes.length === 1) return res.redirect(`/editar-paciente/${pacientes[0].id_paciente}`);
+        }
+        const paciente = await Paciente.findOne({ where: whereCondition });
+        if (paciente) {
+            res.redirect(`/editar-paciente/${paciente.id_paciente}`);
+        } else {
+            res.render("busquedaPaciente", {pageTitle: 'Buscar Paciente', paciente: null, mensaje: "Paciente no encontrado." });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error al buscar paciente.");
     }
-    const paciente = await Paciente.findOne({ where: whereCondition });
-    if (paciente) {
-      res.redirect(`/editar-paciente/${paciente.id_paciente}`);
-    } else {
-      res.render("busquedaPaciente", { paciente: null, mensaje: "Paciente no encontrado." });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error al buscar paciente.");
-  }
 });
 
-// Muestra el formulario para editar un paciente con sus datos cargados
 
 router.get("/editar-paciente/:id", async (req, res) => {
-  const user = req.user;
-  if (!user || !user.dataValues) return res.status(401).send("Usuario no autenticado.");
-  
-  try {
-    const paciente = await Paciente.findByPk(req.params.id);
-    if (paciente) {
-      // Pasamos solo el objeto 'paciente'. La plantilla se encargará del resto.
-      res.render("ingresarPaciente", { paciente: paciente });
-    } else {
-      res.status(404).send("Paciente no encontrado para editar.");
+    try {
+        const paciente = await Paciente.findByPk(req.params.id);
+        if (paciente) {
+            res.render("ingresarPaciente", {pageTitle: 'Editar Paciente', paciente: paciente });
+        } else {
+            req.flash('error', 'El paciente no fue encontrado.');
+            res.redirect('/buscar-paciente');
+        }
+    } catch (error) {
+        console.error("Error al cargar paciente para edición:", error);
+        res.status(500).send("Error al cargar paciente para edición.");
     }
-  } catch (error) {
-    console.error("Error al cargar paciente para edición:", error);
-    res.status(500).send("Error al cargar paciente para edición.");
-  }
 });
 
-// Recibe los datos del formulario de edición y los guarda
+
 router.post("/editar-paciente/:id", async (req, res) => {
-  try {
-    const paciente = await Paciente.findByPk(req.params.id);
-    if (paciente) {
-      await paciente.update(req.body); // Actualiza el paciente con los datos del form
-      req.flash('success', `Paciente ${paciente.nombre} ${paciente.apellido} actualizado exitosamente.`);
-      res.redirect('/buscar-paciente'); // Redirige a la página de búsqueda
-    } else {
-      res.status(404).send("Paciente no encontrado para actualizar.");
+    try {
+        const paciente = await Paciente.findByPk(req.params.id);
+        if (paciente) {
+            await paciente.update(req.body);
+            req.flash('success', `Paciente ${paciente.nombre} ${paciente.apellido} actualizado exitosamente.`);
+            res.redirect('/buscar-paciente');
+        } else {
+            res.status(404).send("Paciente no encontrado para actualizar.");
+        }
+    } catch (error) {
+        console.error("Error al actualizar el paciente:", error);
+        res.status(500).send("Error al actualizar el paciente.");
     }
-  } catch (error) {
-    console.error("Error al actualizar el paciente:", error);
-    res.status(500).send("Error al actualizar el paciente.");
-  }
 });
 
-// Ruta para CREAR un nuevo paciente
-router.post("/guardar-paciente", async (req, res) => {
-  const user = req.user;
-  if (!user || !user.dataValues) return res.status(401).send("Usuario no autenticado.");
-  const usuarioId = user.dataValues.id_Usuario;
-  try {
-    const { dni, nombre, apellido, direccion, email, telefono, fecha_nacimiento, genero, embarazo, diagnostico } = req.body;
-    const pacienteExistente = await Paciente.findOne({ where: { [Op.or]: [{ dni }, { email }] } });
-    if (pacienteExistente) {
-      return res.render("ingresarPaciente", { paciente: req.body, mensaje: `Error: Ya existe un paciente con DNI ${dni} o email ${email}` });
+router.post("/desactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico']), async (req, res) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const paciente = await Paciente.findByPk(req.params.id, { transaction });
+        
+        if (paciente && paciente.estado === 'activo') {
+            paciente.estado = 'inactivo';
+            await paciente.save({ transaction });
+
+            await auditoriaController.registrar(
+                req.session.usuario.id,
+                "Desactivación de Paciente",
+                `Se desactivó al paciente: ${paciente.nombre} ${paciente.apellido} (DNI: ${paciente.dni})`,
+                { transaction }
+            );
+            
+            await transaction.commit();
+            req.flash('success', `Paciente ${paciente.nombre} ${paciente.apellido} ha sido desactivado correctamente.`);
+        } else {
+            await transaction.rollback();
+            req.flash('error', 'No se pudo desactivar al paciente o ya estaba inactivo.');
+        }
+        res.redirect('/buscar-paciente');
+    } catch (error) {
+        if(transaction) await transaction.rollback();
+        console.error("Error al desactivar el paciente:", error);
+        req.flash('error', 'Ocurrió un error al intentar desactivar al paciente.');
+        res.redirect('/buscar-paciente');
     }
-    await Paciente.create({ nombre, apellido, dni, email, telefono, direccion, fecha_nacimiento, genero, embarazo, diagnostico, fecha_registro: new Date() });
-    const hashedPassword = await bcrypt.hash(dni, 10);
-    await Usuarios.create({ nombre_usuario: `${nombre} ${apellido}`, rol: "usuario", correo_electronico: email, password: hashedPassword });
-    await auditoriaController.registrar(usuarioId, "Creación de Usuario", `Nuevo Usuario: ${nombre} ${apellido} (DNI: ${dni})`);
-    const templatePath = path.join(__dirname, '../templates/emailTemplate.html');
-    let htmlTemplate = fs.readFileSync(templatePath, 'utf8')
-      .replace(/\${email}/g, email).replace(/\${dni}/g, dni).replace(/\${nombre}/g, nombre)
-      .replace(/\${apellido}/g, apellido).replace(/http:\/\/tulaboratorio.com\/login/g, 'http://localhost:3000/login');
-    await transporter.sendMail({
-      from: process.env.FROM_EMAIL, to: email, subject: "🔑 Tus credenciales de acceso - Laboratorio La Punta",
-      text: `Bienvenido ${nombre} ${apellido}!\n\nUsuario: ${email}\nContraseña: ${dni}\n\nAccede en: http://localhost:3000/login`,
-      html: htmlTemplate
-    });
-    res.redirect(`/recepcionista?success=Paciente registrado y correo enviado`);
-  } catch (error) {
-    console.error("Error al guardar el paciente:", error);
-    res.status(500).send("Error al guardar el paciente");
-  }
 });
 
+router.post("/reactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico']), async (req, res) => {
+    const transaction = await sequelize.transaction();
+    try {
+        const paciente = await Paciente.findByPk(req.params.id, { transaction });
+        
+        if (paciente && paciente.estado === 'inactivo') {
+            paciente.estado = 'activo';
+            await paciente.save({ transaction });
+
+            await auditoriaController.registrar(
+                req.session.usuario.id,
+                "Reactivación de Paciente",
+                `Se reactivó al paciente: ${paciente.nombre} ${paciente.apellido} (DNI: ${paciente.dni})`,
+                { transaction }
+            );
+            
+            await transaction.commit();
+            req.flash('success', `Paciente ${paciente.nombre} ${paciente.apellido} ha sido reactivado correctamente.`);
+        } else {
+            await transaction.rollback();
+            req.flash('error', 'No se pudo reactivar al paciente o ya estaba activo.');
+        }
+        res.redirect(`/editar-paciente/${req.params.id}`);
+    } catch (error) {
+        if(transaction) await transaction.rollback();
+        console.error("Error al reactivar el paciente:", error);
+        req.flash('error', 'Ocurrió un error al intentar reactivar al paciente.');
+        res.redirect('/buscar-paciente');
+    }
+});
+
+
+router.post("/guardar-paciente", checkRole(['bioquimico', 'recepcionista', 'admin']), async (req, res) => {
+    const { dni, nombre, apellido, email, ...pacienteData } = req.body;
+    const transaction = await sequelize.transaction();
+    
+    try {
+
+        const usuarioIdAuditoria = req.session.usuario.id;
+
+
+        const pacienteExistente = await Paciente.findOne({ where: { dni }, transaction });
+        if (pacienteExistente) {
+            await transaction.rollback();
+            req.flash('error', `Error: Ya existe un paciente registrado con el DNI ${dni}`);
+            return res.render("ingresarPaciente", { pageTitle: 'Ingresar Paciente', paciente: req.body });
+        }
+
+
+        let usuario = await Usuario.findOne({ where: { correo_electronico: email }, transaction });
+        let usuarioEraNuevo = false;
+
+        if (usuario) {
+            const esPaciente = await Paciente.findOne({ where: { id_usuario_fk: usuario.id_Usuario }, transaction });
+            if (esPaciente) {
+                await transaction.rollback();
+                req.flash('error', 'Este usuario ya tiene un perfil de paciente asociado.');
+                return res.redirect('/ingresar-paciente');
+            }
+        } else {
+            usuarioEraNuevo = true;
+            const hashedPassword = await bcrypt.hash(dni, 10);
+            usuario = await Usuario.create({
+                nombre_usuario: `${nombre} ${apellido}`,
+                correo_electronico: email,
+                password: hashedPassword,
+            }, { transaction });
+        }
+
+
+        await Paciente.create({
+            ...pacienteData,
+            nombre,
+            apellido,
+            dni,
+            email,
+            id_usuario_fk: usuario.id_Usuario,
+            fecha_registro: new Date()
+        }, { transaction });
+
+
+        await auditoriaController.registrar(
+            usuarioIdAuditoria,
+            "Creación de Paciente",
+            `Nuevo perfil de paciente para usuario: ${nombre} ${apellido} (DNI: ${dni})`,
+            { transaction }
+        );
+
+
+        if (usuarioEraNuevo) {
+            const templatePath = path.join(__dirname, '../templates/emailTemplate.html');
+            let htmlTemplate = fs.readFileSync(templatePath, 'utf8')
+                .replace(/\${email}/g, email).replace(/\${dni}/g, dni).replace(/\${nombre}/g, nombre)
+                .replace(/\${apellido}/g, apellido).replace(/http:\/\/tulaboratorio.com\/login/g, 'http://localhost:3000/login');
+            
+            await transporter.sendMail({
+                from: process.env.FROM_EMAIL, to: email, subject: "🔑 Tus credenciales de acceso - Laboratorio",
+                text: `Bienvenido ${nombre} ${apellido}!\n\nUsuario: ${email}\nContraseña: ${dni}\n\nAccede en: http://localhost:3000/login`,
+                html: htmlTemplate
+            });
+        }
+
+        await transaction.commit();
+        req.flash('success', 'Paciente registrado con éxito.');
+        res.redirect(`/${req.session.usuario.rolEmpleado}`);
+
+    } catch (error) {
+        if (transaction) await transaction.rollback();
+        console.error("Error al guardar el paciente:", error);
+        res.status(500).send("Error al guardar el paciente");
+    }
+});
 
 
 router.get("/portal-paciente", checkRole(["paciente"]), async (req, res) => {
   try {
-    const userEmail = req.user.correo_electronico;
-    const paciente = await Paciente.findOne({ where: { email: userEmail } });
-    if (!paciente) {
+    const idPaciente = req.session.usuario.idPaciente;
+    if (!idPaciente) {
       req.flash("error", "No se encontró un perfil de paciente asociado a su usuario.");
       return res.redirect("/login");
     }
-    const ordenes = await OrdenesTrabajo.findAll({
-      where: { estado: "informada", id_Paciente: paciente.id_paciente },
+    const ordenes = await OrdenTrabajo.findAll({
+      where: { estado: "Informada", id_Paciente: idPaciente },
       order: [['Fecha_Creacion', 'DESC']]
     });
-    res.render("portalPaciente", { ordenes: ordenes, user: req.user });
+    res.render("portalPaciente", {pageTitle: 'Portal del Paciente', ordenes: ordenes, user: req.session.usuario });
   } catch (error) {
     console.error("ERROR en /portal-paciente:", error);
     req.flash("error", "Hubo un error al cargar sus datos.");
@@ -166,38 +275,36 @@ router.get("/portal-paciente", checkRole(["paciente"]), async (req, res) => {
   }
 });
 
-// RUTA GET para mostrar el formulario de edición (esta no cambia)
 router.get("/portal-paciente/editar", checkRole(["paciente"]), async (req, res) => {
-  try {
-    const paciente = await Paciente.findOne({ where: { email: req.user.correo_electronico } });
-    if (!paciente) {
-      req.flash("error", "Paciente no encontrado");
-      return res.redirect("/portal-paciente");
-    }
-    res.render("editarPaciente", { 
+  try {
+    const paciente = await Paciente.findOne({ where: { id_usuario_fk: req.session.usuario.id } });
+    if (!paciente) {
+      req.flash("error", "Paciente no encontrado");
+      return res.redirect("/portal-paciente");
+    }
+    res.render("editarPaciente", {
+        pageTitle: 'Editar Mis Datos',
         paciente: paciente.get({ plain: true }),
         successMessages: req.flash('success'),
         errorMessages: req.flash('error')
     });
-  } catch (error) {
-    console.error("Error al cargar datos del paciente:", error);
-    req.flash("error", "Error al cargar datos");
-    res.redirect("/portal-paciente");
-  }
+  } catch (error) {
+    console.error("Error al cargar datos del paciente:", error);
+    req.flash("error", "Error al cargar datos");
+    res.redirect("/portal-paciente");
+  }
 });
 
-// RUTA POST QUE SOLO ACTUALIZA LA CONTRASEÑA (CON LÓGICA DE MODAL)
-router.post("/portal-paciente/actualizar", checkRole(["paciente"]), async (req, res) => {
-  try {
-    const { password_actual, nueva_password } = req.body;
-    const usuario = await Usuarios.findByPk(req.user.id_Usuario);
 
-    // Si no se envía una nueva contraseña, no se hace nada.
+router.post("/portal-paciente/actualizar", checkRole(["paciente"]), async (req, res) => {
+  try {
+    const { password_actual, nueva_password } = req.body;
+    const usuario = await Usuario.findByPk(req.session.usuario.id);
+
     if (!nueva_password || nueva_password.trim() === "") {
         req.flash("error", "No se ingresó una nueva contraseña.");
         return res.redirect("/portal-paciente/editar");
     }
-
     if (!password_actual || password_actual.trim() === "") {
         req.flash("error", "Para cambiar la contraseña, debes ingresar tu contraseña actual.");
         return res.redirect("/portal-paciente/editar");
@@ -209,45 +316,185 @@ router.post("/portal-paciente/actualizar", checkRole(["paciente"]), async (req, 
         return res.redirect("/portal-paciente/editar");
     }
 
-    // --- NUEVO: Verificar si la nueva contraseña es idéntica a la anterior ---
     const esMismaPassword = await bcrypt.compare(nueva_password, usuario.password);
     if (esMismaPassword) {
         req.flash("error", "Error al modificar la contraseña, motivo: Contraseña idéntica a la anterior.");
         return res.redirect("/portal-paciente/editar");
     }
 
-    // Si todo es correcto, hasheamos y guardamos la nueva contraseña.
-    usuario.password = await bcrypt.hash(nueva_password, 10);
-    await usuario.save();
+    usuario.password = await bcrypt.hash(nueva_password, 10);
+    await usuario.save();
 
-    // --- CAMBIO: Redirigimos con un parámetro para activar el modal ---
-    return res.redirect("/portal-paciente/editar?password_success=true");
+    return res.redirect("/portal-paciente/editar?password_success=true");
 
-  } catch (error) {
-    console.error("Error al actualizar la contraseña:", error);
-    req.flash("error", "Error al actualizar la contraseña.");
-    return res.redirect("/portal-paciente/editar");
-  }
+  } catch (error) {
+    console.error("Error al actualizar la contraseña:", error);
+    req.flash("error", "Error al actualizar la contraseña.");
+    return res.redirect("/portal-paciente/editar");
+  }
 });
 
 router.post("/eliminar-paciente/:dni", async (req, res) => {
-  const user = req.user;
-  if (!user || !user.dataValues) return res.status(401).send("Usuario no autenticado.");
-  const usuarioId = user.dataValues.id_Usuario;
+
+  const usuarioIdAuditoria = req.session.usuario.id;
   const { dni } = req.params;
   try {
     const paciente = await Paciente.findOne({ where: { dni } });
     if (!paciente) return res.status(404).send("Paciente no encontrado.");
-    const usuario = await Usuarios.findOne({ where: { Correo_Electronico: paciente.email } });
+    
+
+    const usuario = await Usuario.findByPk(paciente.id_usuario_fk);
+    
     await paciente.destroy();
-    await auditoriaController.registrar(usuarioId, "Eliminar Paciente", `El usuario eliminó al paciente con DNI ${dni} (${paciente.nombre} ${paciente.apellido}).`);
+    await auditoriaController.registrar(usuarioIdAuditoria, "Eliminar Paciente", `El usuario eliminó al paciente con DNI ${dni} (${paciente.nombre} ${paciente.apellido}).`);
     if (usuario) await usuario.destroy();
-    res.redirect("/layout");
+    
+    res.redirect(`/${req.session.usuario.rolEmpleado}`);
   } catch (error) {
     console.error("Error al eliminar el paciente o usuario:", error);
     res.status(500).send("Error al eliminar el paciente o usuario.");
   }
 });
+router.get("/generarPDF/:idOrden", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login');
+  }
+
+  const { idOrden } = req.params;
+  const usuarioSesion = req.session.usuario;
+
+  try {
+
+    const orden = await OrdenTrabajo.findByPk(idOrden);
+    if (!orden) return res.status(404).send("Orden no encontrada.");
+    if (!usuarioSesion.esEmpleado && orden.id_Paciente !== usuarioSesion.idPaciente) {
+      req.flash('error','No tienes permiso para ver esta orden.');
+      return res.redirect('/portal-paciente');
+    }
+
+    const resultados = await sequelize.query(
+      `SELECT 
+          e.nombre_examen,
+          d.Nombre_Determinacion,
+          r.Valor AS valor_resultado,
+          r.Unidad AS unidad_resultado,
+          vr.Valor_Referencia_Minimo,
+          vr.Valor_Referencia_Maximo,
+          p.nombre AS nombre_paciente,
+          p.apellido AS apellido_paciente,
+          p.dni AS dni_paciente,
+          p.genero AS sexo_paciente,
+          o.Fecha_Creacion AS fecha_orden,
+          o.Fecha_Creacion AS fecha_ingreso
+       FROM resultados r
+       INNER JOIN determinaciones d ON r.id_Determinacion = d.id_Determinacion
+       INNER JOIN examen e ON d.id_examen = e.id_examen
+       INNER JOIN ordenes_trabajo o ON r.id_Orden = o.id_Orden
+       INNER JOIN pacientes p ON o.id_Paciente = p.id_paciente
+       INNER JOIN valoresreferencia vr 
+         ON d.id_Determinacion = vr.id_Determinacion 
+         AND (vr.Sexo = UPPER(LEFT(p.genero,1)) OR vr.Sexo = 'A')
+         AND TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
+       WHERE o.id_Orden = :idOrden
+       ORDER BY e.nombre_examen, d.Nombre_Determinacion;`,
+      { replacements: { idOrden }, type: sequelize.QueryTypes.SELECT }
+    );
+    if (resultados.length === 0) {
+      return res.status(404).send("No se encontraron resultados para esta orden.");
+    }
+
+ 
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    res.setHeader('Content-Type','application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=Orden_${idOrden}.pdf`);
+    doc.pipe(res);
 
 
+    const watermarkPath = path.join(__dirname,'../public/img/iconopdf.png');
+    const drawWatermark = () => {
+      if (!fs.existsSync(watermarkPath)) return;
+      const tile = 50, xs = 100, ys = 100;
+      doc.save().opacity(0.07);
+      const cols = Math.ceil(doc.page.width / xs);
+      const rows = Math.ceil(doc.page.height / ys);
+      for (let i=0; i<cols; i++){
+        for (let j=0; j<rows; j++){
+          doc.image(watermarkPath, i*xs, j*ys, { width: tile });
+        }
+      }
+      doc.restore();
+    };
+    drawWatermark();
+    doc.on('pageAdded', drawWatermark);
+
+
+    if (fs.existsSync(watermarkPath)) {
+      doc.image(watermarkPath, (doc.page.width-60)/2, 30, { width: 60 });
+    }
+
+
+    const titleX = 50, titleY = 120;
+    doc
+      .fontSize(16)
+      .fillColor('#000')
+      .text('Informe de Resultados de Laboratorio', titleX, titleY, { align: 'center' });
+    doc.lineWidth(1).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+
+
+    const p = resultados[0];
+    const sexo = p.sexo_paciente.toLowerCase() === 'masculino' ? 'Masculino' : 'Femenino';
+    doc.fontSize(12).moveDown(2);
+    const info = [
+      `Orden: ${idOrden}`,
+      `Paciente: ${p.nombre_paciente} ${p.apellido_paciente}`,
+      `Fecha Orden:   ${new Date(p.fecha_orden).toLocaleDateString('es-AR')}`,
+      `DNI: ${p.dni_paciente}`,
+      `Fecha Ingreso: ${new Date(p.fecha_ingreso).toLocaleDateString('es-AR')}`,
+      `Sexo: ${sexo}`
+      
+    ];
+    info.forEach((txt,i) => {
+      const x = 50 + (i%2)*250;
+      const y = 150 + Math.floor(i/2)*15;
+      doc.text(txt, x, y);
+    });
+    doc.moveDown(3);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).lineWidth(0.5).stroke('#333');
+    doc.moveDown();
+
+
+    const colsX = { examen:50, det:180, res:330, ref:430 };
+    const headerY = doc.y;
+
+    doc.fontSize(9).fillColor('#333');
+    doc.text('Examen',        colsX.examen, headerY, { width:130, align:'left' })
+       .text('Determinación', colsX.det,    headerY, { width:140, align:'left' })
+       .text('Resultado',     colsX.res,    headerY, { width:100, align:'center' })
+       .text('Valores Ref.',  colsX.ref,    headerY, { width:100, align:'right' });
+
+    doc.moveDown(1);
+    doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.5);
+
+
+    doc.fontSize(9).fillColor('#000');
+    resultados.forEach(r => {
+      const rowY = doc.y;
+      const resultadoTxt = `${parseFloat(r.valor_resultado).toFixed(2)} ${r.unidad_resultado}`;
+      const refTxt = `${parseFloat(r.Valor_Referencia_Minimo).toFixed(2)} - ${parseFloat(r.Valor_Referencia_Maximo).toFixed(2)}`;
+      doc.text(r.nombre_examen,        colsX.examen, rowY, { width:130, align:'left' })
+         .text(r.Nombre_Determinacion, colsX.det,    rowY, { width:140, align:'left' })
+         .text(resultadoTxt,           colsX.res,    rowY, { width:100, align:'center' })
+         .text(refTxt,                 colsX.ref,    rowY, { width:100, align:'right' });
+      doc.moveDown(1);
+    });
+
+
+    doc.end();
+
+  } catch(err) {
+    console.error('Error al generar el PDF:', err);
+    res.status(500).send('Ocurrió un error al generar el PDF.');
+  }
+});
 module.exports = router;

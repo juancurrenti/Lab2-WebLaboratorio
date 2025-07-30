@@ -1,7 +1,5 @@
-// config/database.js
 const { Sequelize } = require('sequelize');
 
-// Configura la conexión a la base de datos
 const sequelize = new Sequelize({
   dialect: 'mysql', // Especifica la base de datos que estás utilizando
   host: 'localhost', // Dirección del servidor de la base de datos

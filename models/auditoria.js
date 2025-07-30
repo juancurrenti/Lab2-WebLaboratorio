@@ -1,25 +1,24 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database"); // Asegúrate de que esta ruta sea correcta
-const Usuario = require("./User.js"); // Asegúrate de que esta ruta sea correcta
 
-const Auditoria = sequelize.define(
-  "Auditoria",
-  {
+module.exports = (sequelize) => {
+  const Auditoria = sequelize.define('Auditoria', {
     id_Auditoria: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    id_Usuario: DataTypes.INTEGER,
-    Fecha_Hora_Operacion: DataTypes.DATE,
-    Operacion_Realizada: DataTypes.STRING,
-    Detalles_Adicionales: DataTypes.STRING(200),
-  },
-  {
-    tableName: "auditoria",
-    timestamps: false,
-  }
-);
-Auditoria.belongsTo(Usuario, { foreignKey: "id_Usuario" });
+    id_Usuario: { type: DataTypes.INTEGER, allowNull: false },
+    Fecha_Hora_Operacion: { type: DataTypes.DATE, allowNull: false },
+    Operacion_Realizada: { type: DataTypes.STRING, allowNull: false },
+    Detalles_Adicionales: { type: DataTypes.TEXT, allowNull: true }
+  }, {
+    tableName: 'auditoria',
+    timestamps: false
+  });
 
-module.exports = Auditoria;
+  Auditoria.associate = function(models) {
+    Auditoria.belongsTo(models.Usuario, { foreignKey: 'id_Usuario', as: 'Usuario' });
+  };
+
+  return Auditoria;
+};

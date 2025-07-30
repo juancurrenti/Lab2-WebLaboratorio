@@ -1,9 +1,6 @@
 extends layout
 
 block content
-  //- Se eliminaron las etiquetas <head> y <body> que estaban aquí incorrectamente.
-
-  //- AQUÍ SE CAMBIÓ .container POR .container-fluid PARA EXPANDIR EL ANCHO
   .container-fluid
     h1 Órdenes Pendientes a Validar
     .mb-3
@@ -29,7 +26,7 @@ block content
             td= orden.Fecha_Creacion ? orden.Fecha_Creacion.toISOString().split("T")[0] : "No disponible"
             td= orden.Fecha_Entrega
             td
-              a.btn.btn-warning(href=`/validarResultados/${orden.id_Orden}`) Ir a Validar
+              a.btn.btn-warning(href=`/orden/validarResultados/${orden.id_Orden}`) Ir a Validar
 
     // Paginación
     if totalPages > 1
@@ -41,10 +38,10 @@ block content
 
     form#paginationForm(action="/pendientesValidar" method="GET" style="display:none;")
       input(type="hidden" name="page")
-      
-  //- SCRIPT COLOCADO DENTRO DE BLOCK CONTENT PARA EVITAR EL ERROR
+  a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver
+    
+
   script.
-    // JavaScript para búsqueda dinámica
     document.addEventListener("DOMContentLoaded", () => {
       const searchInput = document.getElementById("searchInput");
       if (searchInput) {

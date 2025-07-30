@@ -1,99 +1,48 @@
 extends layout
 
 block content
-  //- Se eliminaron las etiquetas <head> y <body> incorrectas
-  .container-fluid
-    h1 Muestras de la Orden #{id_Orden}
+    .container-fluid
+        h1 Muestras de la Orden #{id_Orden}
 
-    if success
-      .alert.alert-success.alert-dismissible.fade.show(role="alert")
-        strong 
-        | #{success}
-        button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
-    if error
-      .alert.alert-danger.alert-dismissible.fade.show(role="alert")
-        strong Error: 
-        | #{error}
-        button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+        if success
+            .alert.alert-success.alert-dismissible.fade.show(role="alert")
+                strong= success
+                button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+        if error
+            .alert.alert-danger.alert-dismissible.fade.show(role="alert")
+                strong Error: 
+                | #{error}
+                button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
 
-    if muestras.length > 0
-      table.table.table-striped.mt-4
-        thead
-          tr
-            th #ID Muestra
-            th Tipo de Muestra
-            th Fecha Recepción
-            th Estado
-            th Acciones (Imprimir o cambiar de estado)
-        tbody
-          each muestra in muestras
-            tr
-              td= muestra.id_Muestra
-              td= muestra.TipoMuestra.tipoDeMuestra
-              td= muestra.Fecha_Recepcion ? muestra.Fecha_Recepcion.toISOString().split('T')[0] : 'No disponible'
-              td= muestra.estado
-              td 
-                //- AQUÍ SE RESTAURARON LOS BOTONES ORIGINALES
-                form(action=`/muestras/imprimir/${muestra.id_Muestra}` method="GET" target="_blank" style="display: inline-block; margin-right: 5px;")
-                  button.btn.btn-primary.btn-sm(type="submit") Imprimir Etiqueta
-                button.btn.btn-success.btn-sm(type="button" data-bs-toggle="modal" data-bs-target=`#modalCambiarEstado-${muestra.id_Muestra}-esperando` style="margin-right: 5px;") Esperando Toma de Muestra
-                button.btn.btn-success.btn-sm(type="button" data-bs-toggle="modal" data-bs-target=`#modalCambiarEstado-${muestra.id_Muestra}-analitica`) Analítica
+        if muestras && muestras.length > 0
+            table.table.table-striped.mt-4
+                thead
+                    tr
+                        th #ID Muestra
+                        th Tipo de Muestra
+                        th Fecha Recepción
+                        th Estado
+                        th Acciones
+                tbody
+                    each muestra in muestras
+                        tr
+                            td= muestra.id_Muestra
+                            td= muestra.tipoMuestra.tipoDeMuestra
+                            td= muestra.Fecha_Recepcion ? new Date(muestra.Fecha_Recepcion).toLocaleDateString('es-AR') : 'No disponible'
+                            td= muestra.estado
+                            td 
 
-                //- Modales (sin cambios)
-                .modal.fade(id=`modalCambiarEstado-${muestra.id_Muestra}-esperando` tabindex="-1" aria-labelledby=`modalLabel-${muestra.id_Muestra}-esperando` aria-hidden="true")
-                  .modal-dialog
-                    .modal-content
-                      .modal-header
-                        h5.modal-title(id=`modalLabel-${muestra.id_Muestra}-esperando`) Confirmar Acción
-                        button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
-                      .modal-body
-                        p ¿Estás seguro de actualizar el estado de la muestra #{muestra.id_Muestra} a "Esperando Toma de Muestra"?
-                      .modal-footer
-                        button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-                        button.btn.btn-warning(type="button" onclick=`cambiarEstadoMuestra(${muestra.id_Muestra}, 'Esperando Toma de Muestra')`) Aceptar
+                                - const isPending = muestra.estado === 'pendiente'
+                                form(action=`/orden/muestras/imprimir/${muestra.id_Muestra}` method="GET" target="_blank")
 
-                .modal.fade(id=`modalCambiarEstado-${muestra.id_Muestra}-analitica` tabindex="-1" aria-labelledby=`modalLabel-${muestra.id_Muestra}-analitica` aria-hidden="true")
-                  .modal-dialog
-                    .modal-content
-                      .modal-header
-                        h5.modal-title(id=`modalLabel-${muestra.id_Muestra}-analitica`) Confirmar Acción
-                        button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
-                      .modal-body
-                        p ¿Estás seguro de actualizar el estado de la muestra #{muestra.id_Muestra} a "Analítica"?
-                      .modal-footer
-                        button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-                        button.btn.btn-success(type="button" onclick=`cambiarEstadoMuestra(${muestra.id_Muestra}, 'Analítica')`) Aceptar
-
-      button.btn.btn-warning.mt-4#btnPreInformar(type="button" data-bs-toggle="modal" data-bs-target="#confirmModal") Pre Informar
-
-      .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
-        .modal-dialog
-          .modal-content
-            .modal-header
-              h5.modal-title#confirmModalLabel Confirmar Acción
-              button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
-            .modal-body
-              p ¿Estás seguro de actualizar el estado de todas las muestras de esta orden a "Pre-Informe"?
-            .modal-footer
-              button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-              form(action=`/muestras/preinformar/${id_Orden}` method="POST" id="confirmForm")
-                button.btn.btn-warning(type="submit") Aceptar
-    else
-      p.text-muted No hay muestras asociadas a esta orden.
-      a.btn.btn-primary.mt-4(href="/ordenesAnalitica") Volver a Órdenes de Trabajo
-
-  script.
-    async function cambiarEstadoMuestra(idMuestra, nuevoEstado) {
-      try {
-        const response = await fetch(`/muestras/cambiar-estado/${idMuestra}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nuevoEstado }),
-        });
-        await response.json();
-      } catch (e) {
-        console.error('Error al cambiar el estado:', e);
-      } finally {
-        location.reload();
-      }
-    }
+                                    button.btn.btn-primary.btn-sm(
+                                        type="submit",
+                                        disabled=isPending,
+                                        title=isPending ? 'La muestra debe ser recibida para poder imprimir la etiqueta' : 'Imprimir etiqueta'
+                                    ) Imprimir Etiqueta
+            
+            a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver
+            
+        else
+            p.text-muted No hay muestras asociadas a esta orden.
+            a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver

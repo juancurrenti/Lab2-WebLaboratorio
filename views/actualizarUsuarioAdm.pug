@@ -7,130 +7,128 @@ block content
   div.container.margin-top-custom
     h1 Actualizar Usuario
 
-    // Campo para mensajes de éxito o error
     if mensajeExito
       div.alert.alert-success(role="alert") #{mensajeExito}
     if mensajeError
       div.alert.alert-danger(role="alert") #{mensajeError}
 
-    // Campo de búsqueda con menú desplegable
     .form-group
       label(for="busquedaUsuario") Buscar Usuario por Nombre o Correo:
       input(type="text" id="busquedaUsuario" class="form-control" onkeyup="buscarUsuariosTiempoReal()" placeholder="Escriba nombre o correo..." autocomplete="off")
       ul#resultadosBusqueda(class="list-group mt-2")
 
-    // Formulario para editar usuario
-    form(action="/admin/actualizar-usuario" method="POST" enctype="multipart/form-data" onsubmit="return confirmarActualizarUsuario()")
+    form#actualizar-usuario-form(action="/admin/actualizar-usuario" method="POST")
       input(type="hidden" name="idUsuario" id="idUsuario") 
       .form-group
         label(for="nombre") Nombre:
         input(type="text" name="nombre" id="nombre" class="form-control" required)
-
       .form-group
         label(for="correo_electronico") Correo Electrónico:
         input(type="email" name="correo_electronico" id="correoElectronico" class="form-control" required)
-
       .form-group
-        label(for="password") Contraseña:
+        label(for="password") Contraseña (dejar en blanco para no cambiar):
         input(type="password" name="password" id="password" class="form-control")
-
       .form-group
         label(for="rol") Rol:
         select(name="rol" id="rol" class="form-control")
           option(value="recepcionista") Recepcionista
           option(value="tecnico") Técnico
-          option(value="bioquímico") Bioquímico
+          option(value="bioquimico") Bioquímico
           option(value="admin") Administrador
+      
 
-      .form-group
-        label(for="foto") Foto de Perfil:
-        img#fotoActual(src="/public/img/default-avatar.png" alt="Foto Usuario" class="img-thumbnail mb-2" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%;")
-        input(type="file" name="foto" id="foto" class="form-control" accept="image/*")
+      .form-group.mt-4
+        button(type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#confirmUpdateModal") Actualizar Usuario
+        button(type="button" onclick="eliminarUsuario()" class="btn btn-danger ms-2") Eliminar Usuario
+        a.btn.btn-secondary.ms-2(href="javascript:history.back()") Volver
 
-      .form-group
-        button(type="submit" class="btn btn-success") Actualizar Usuario
-        button(type="button" onclick="eliminarUsuario()" class="btn btn-danger") Eliminar Usuario
-
-    // Mostrar mensaje de actualización
     div#mensaje
 
-    script.
-      // Función para buscar usuarios en tiempo real
-      function buscarUsuariosTiempoReal() {
-        const busqueda = document.getElementById("busquedaUsuario").value;
-        if (!busqueda) {
-          document.getElementById("resultadosBusqueda").innerHTML = "";
-          return;
-        }
+  .modal.fade#confirmUpdateModal(tabindex="-1" aria-labelledby="modalLabelUpdate" aria-hidden="true")
+    .modal-dialog
+      .modal-content
+        .modal-header
+          h5.modal-title#modalLabelUpdate ¿Confirmar Actualización?
+          button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+        .modal-body
+          p ¿Estás seguro de que deseas actualizar los datos de este usuario?
+        .modal-footer
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-success#confirmSubmitUpdateBtn(type="button") Confirmar
 
-        fetch(`/admin/actualizarUsuarioAdm?nombre=${busqueda}`)
+  script.
+    function buscarUsuariosTiempoReal() {
+      const busqueda = document.getElementById("busquedaUsuario").value;
+      if (!busqueda) {
+        document.getElementById("resultadosBusqueda").innerHTML = "";
+        return;
+      }
+      fetch(`/admin/actualizarUsuarioAdm?nombre=${busqueda}`)
+        .then(response => response.json())
+        .then(data => {
+          const resultados = document.getElementById("resultadosBusqueda");
+          resultados.innerHTML = "";
+          if (data.usuarios && data.usuarios.length > 0) {
+            data.usuarios.forEach(usuario => {
+              const li = document.createElement("li");
+              li.className = "list-group-item list-group-item-action";
+              li.textContent = `${usuario.nombre_usuario} (${usuario.correo_electronico}) - ${usuario.rol}`;
+              li.onclick = () => seleccionarUsuario(usuario);
+              resultados.appendChild(li);
+            });
+          } else {
+            resultados.innerHTML = '<li class="list-group-item">No se encontraron usuarios</li>';
+          }
+        })
+        .catch(error => {
+          console.error("Error en la búsqueda:", error);
+        });
+    }
+
+    function seleccionarUsuario(usuario) {
+      document.getElementById("idUsuario").value = usuario.id_Usuario;
+      document.getElementById("nombre").value = usuario.nombre_usuario;
+      document.getElementById("correoElectronico").value = usuario.correo_electronico;
+      document.getElementById("rol").value = usuario.rol;
+      document.getElementById("resultadosBusqueda").innerHTML = "";
+    }
+
+    function eliminarUsuario() {
+      const idUsuario = document.getElementById("idUsuario").value;
+      if (!idUsuario) {
+        document.getElementById("mensaje").innerHTML = '<div class="alert alert-warning">Debe seleccionar un usuario para eliminar.</div>';
+        return;
+      }
+      if (confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción es irreversible.")) {
+        fetch(`/admin/eliminarUsuarioAdm/${idUsuario}`, {
+          method: "DELETE",
+        })
           .then(response => response.json())
           .then(data => {
-            const resultados = document.getElementById("resultadosBusqueda");
-            resultados.innerHTML = ""; // Limpia los resultados previos
-
-            if (data.usuarios && data.usuarios.length > 0) {
-              data.usuarios.forEach(usuario => {
-                const li = document.createElement("li");
-                li.className = "list-group-item list-group-item-action";
-                li.textContent = `${usuario.nombre_usuario} (${usuario.correo_electronico}) - ${usuario.rol}`;
-                li.onclick = () => seleccionarUsuario(usuario);
-                resultados.appendChild(li);
-              });
+            if (data.mensaje) {
+              document.getElementById("mensaje").innerHTML = `<div class="alert alert-success">${data.mensaje}</div>`;
+              document.getElementById('idUsuario').value = "";
+              document.getElementById('nombre').value = "";
+              document.getElementById("correoElectronico").value = "";
+              document.getElementById("rol").value = "";
+              document.getElementById("password").value = "";
             } else {
-              resultados.innerHTML = '<li class="list-group-item">No se encontraron usuarios</li>';
+              document.getElementById("mensaje").innerHTML = `<div class="alert alert-danger">${data.error || 'Usuario no encontrado'}</div>`;
             }
           })
           .catch(error => {
-            console.error("Error en la búsqueda:", error);
+            console.error("Error al eliminar el usuario:", error);
+            document.getElementById("mensaje").innerHTML = '<div class="alert alert-danger">Error al eliminar el usuario.</div>';
           });
       }
-
-      // Seleccionar un usuario del menú desplegable
-      function seleccionarUsuario(usuario) {
-        document.getElementById("idUsuario").value = usuario.id_Usuario; // Rellenar el ID oculto
-        document.getElementById("nombre").value = usuario.nombre_usuario;
-        document.getElementById("correoElectronico").value = usuario.correo_electronico;
-        document.getElementById("rol").value = usuario.rol;
-        if (usuario.urlFoto) {
-          document.getElementById("fotoActual").src = usuario.urlFoto; // Muestra la foto actual
-        } else {
-          document.getElementById("fotoActual").src = "/public/img/default-avatar.png";
-        }
-        document.getElementById("resultadosBusqueda").innerHTML = ""; // Limpia el menú desplegable
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const confirmSubmitBtn = document.querySelector('#confirmSubmitUpdateBtn');
+      const form = document.querySelector('#actualizar-usuario-form');
+      if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener('click', function() {
+          form.submit();
+        });
       }
-
-      function confirmarActualizarUsuario() {
-        return confirm("¿Estás seguro de que deseas actualizar este usuario?");
-      }
-
-      function eliminarUsuario() {
-        const idUsuario = document.getElementById("idUsuario").value;
-        if (!idUsuario) {
-          document.getElementById("mensaje").innerHTML = "Debe seleccionar un usuario para eliminar.";
-          return;
-        }
-        if (confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
-          fetch(`/admin/eliminarUsuarioAdm/${idUsuario}`, {
-            method: "DELETE",
-          })
-            .then(response => response.json())
-            .then(data => {
-              if (data.mensaje) {
-                document.getElementById("mensaje").innerHTML = data.mensaje;
-                // Vaciar los campos después de eliminar
-                document.getElementById('idUsuario').value = "";
-                document.getElementById('nombre').value = "";
-                document.getElementById("correoElectronico").value = "";
-                document.getElementById("rol").value = "";
-                document.getElementById("password").value = "";
-                document.getElementById("fotoActual").src = "/public/img/default-avatar.png";
-              } else {
-                document.getElementById("mensaje").innerHTML = "Usuario no encontrado";
-              }
-            })
-            .catch(error => {
-              console.error("Error al eliminar el usuario:", error);
-            });
-        }
-      }
+    });

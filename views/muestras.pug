@@ -56,7 +56,7 @@ block content
 
           const data = await info.json();
           log(data);
-          resultList.innerHTML = ""; // Limpia el contenedor de la lista
+          resultList.innerHTML = "";
 
           if (data.length > 0) {
             resultHeading.textContent = `Órdenes de trabajo asociadas al paciente con DNI: ${dniPaciente}`;
@@ -67,7 +67,7 @@ block content
 
               const listItem = document.createElement("div");
               listItem.classList.add("card", "mb-3");
-              listItem.style.height = "200px"; // Añadiendo el height aquí
+              listItem.style.height = "200px";
               listItem.innerHTML = `
                 <div class="card-body">
                   <ul class="list-unstyled" id="orden_${orden.id_Orden}">

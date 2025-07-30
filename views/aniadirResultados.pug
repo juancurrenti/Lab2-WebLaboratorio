@@ -49,13 +49,13 @@ block content
       tbody
 
   script.
-    const muestra = !{JSON.stringify(muestra)}; // Convertir muestra a JSON y asignar a muestra en JavaScript
+    const muestra = !{JSON.stringify(muestra)};
 
     document.getElementById('id_determinacion').addEventListener('change', async function() {
       const idDeterminacion = this.value;
       if (idDeterminacion) {
         try {
-          const url = `/muestras/mostrar/aniadirResultados/${muestra.id_Muestra}/valoresReferencia/${idDeterminacion}`; // Construir la URL dinámicamente
+          const url = `/muestras/mostrar/aniadirResultados/${muestra.id_Muestra}/valoresReferencia/${idDeterminacion}`;
           const response = await fetch(url);
           if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -63,8 +63,7 @@ block content
           const valoresReferencia = await response.json();
 
           const tbody = document.querySelector('#valoresReferenciaTable tbody');
-          tbody.innerHTML = ''; // Limpiar la tabla antes de agregar nuevas filas
-
+          tbody.innerHTML = '';
           valoresReferencia.forEach(valor => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -80,7 +79,7 @@ block content
           error('Error al obtener valores de referencia:', error);
         }
       } else {
-        // Limpiar la tabla si no hay una determinación seleccionada
+
         document.querySelector('#valoresReferenciaTable tbody').innerHTML = '';
       }
     });

@@ -3,36 +3,61 @@ block content
     title Laboratorio - Iniciar Sesión
     link(rel="icon" href="/public/img/icon.png" type="image/png")
     link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css")
-    link(rel="stylesheet" href="./public/css/style.css")
+    link(rel="stylesheet" href="/public/css/style.css")
     script(src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js")
+    
+
     style.
-      
+      .floating-label input:focus + label,
+      .floating-label input:not(:placeholder-shown) + label {
+        transform: translateY(-20px) scale(0.75);
+        color: #0c4683;
+        opacity: 0;
+      }
+      .floating-label label {
+        transform-origin: left top;
+        transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+      }
+      input 
+      .floating-label input:-webkit-autofill + label {
+        transform: translateY(-20px) scale(0.75);
+        color: #007bff;
+      }
+
   body.login-page
     #particles-js
     .login-container
       .login-brand
-        img(src="./public/img/login.webp" alt="Laboratorio").brand-logo
+        img(src="/public/img/login.webp" alt="Laboratorio").brand-logo
         h1.brand-title Inicio de Sesion 
       
       form.login-form(action='/login' method='POST')
         .form-group.floating-label
-          input#correo_electronico(type="email" name="correo_electronico" required)
+          input#correo_electronico(type="email" name="correo_electronico" required placeholder=" ")
           label(for="correo_electronico") 
             i.fas.fa-envelope.icon
             | Correo Electrónico
           
         .form-group.floating-label
-          input#password(type="password" name="password" required)
+          input#password(type="password" name="password" required placeholder=" ")
           label(for="password") 
             i.fas.fa-lock.icon
             | Contraseña
-
         
         button.login-button(type="submit")
           span Ingresar al Sistema
           i.fas.fa-arrow-right
         
-      if message
-        .error-message
-          i.fas.fa-exclamation-circle
-          span= message
+        if errorMessages && errorMessages.length > 0
+          .error-message
+            i.fas.fa-exclamation-circle
+            span= errorMessages[0]
+
+  script.
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof particlesJS !== 'undefined') {
+        particlesJS.load('particles-js', '/public/js/particles.json', function() {
+          console.log('particles.js config loaded');
+        });
+      }
+    });

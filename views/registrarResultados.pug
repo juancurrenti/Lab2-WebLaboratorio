@@ -1,11 +1,17 @@
 extends layout
 
 block content
-  title Registrar Resultados
+
+  - const pageTitle = modificar ? 'Modificar Resultados' : 'Registrar Resultados'
+  - const buttonText = modificar ? 'Guardar Cambios' : 'Guardar Resultados'
+  - const buttonClass = modificar ? 'btn-warning' : 'btn-primary'
   
-  //- AQUÍ SE HIZO EL CAMBIO
   .container-fluid 
-    h1.text-center.mt-4 Registrar Resultados
+    h1.text-center.mt-4= pageTitle
+
+    if errorMessages && errorMessages.length > 0
+        each msg in errorMessages
+            .alert.alert-danger.text-center= msg
 
     if orden && orden.length > 0
       .row
@@ -13,8 +19,9 @@ block content
           h2 Orden: #{orden[0].OrdenID} - Paciente: #{orden[0].NombrePaciente} #{orden[0].ApellidoPaciente}
           p Edad: #{orden[0].EdadPaciente} años | Género: #{orden[0].SexoPaciente}
 
-      form(method="POST" action="/registrarResultados" id="registrarResultadosForm" class="mt-4")
+      form(method="POST" action="/orden/registrarResultados" id="registrarResultadosForm" class="mt-4")
         input(type="hidden" name="idOrden" value=orden[0].OrdenID)
+        input(type="hidden" name="origen" value=origen)
         table.table.table-striped
           thead
             tr
@@ -31,10 +38,13 @@ block content
                 td= item.NombreDeterminacion
                 td= item.UnidadMedidaDeterminacion
                 td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
-                td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino'
+                td= item.SexoValorReferencia == 'M' ? 'Masculino' : (item.SexoValorReferencia == 'F' ? 'Femenino' : 'Ambos')
                 td
                   input.form-control(
-                    type="text",
+                    type="number",
+                    step="0.01",
+                    min="0.00",
+                    
                     name=`resultado_${item.DeterminacionID}`,
                     placeholder="Ingrese resultado",
                     value=item.ResultadoValor || "",
@@ -45,9 +55,12 @@ block content
                     data-max=item.ValorReferenciaMaximo
                   )
                   input(type="hidden", name=`unidad_${item.DeterminacionID}`, value=item.UnidadMedidaDeterminacion)
-        button.btn.btn-primary.mt-3(type="button", data-bs-toggle="modal", data-bs-target="#confirmModal") Guardar Resultados
+                  input(type="hidden", name=`ref_max_${item.DeterminacionID}`, value=item.ValorReferenciaMaximo)
 
-      // Modal de confirmación
+        button.btn.mt-3(type="button", class=buttonClass, data-bs-toggle="modal", data-bs-target="#confirmModal")= buttonText
+        a.btn.btn-secondary.mt-3.ms-2(href="javascript:history.back()") Volver
+
+
       .modal.fade#confirmModal(tabindex="-1", aria-labelledby="confirmModalLabel", aria-hidden="true")
         .modal-dialog.modal-lg
           .modal-content
@@ -74,55 +87,45 @@ block content
           p.text-muted No se encontraron resultados a analizar para esta orden.
 
   script.
-    // Funcion para validar si el resultado está en rango y cambiar el color
+
     function validarResultado(input) {
       const min = parseFloat(input.dataset.min);
       const max = parseFloat(input.dataset.max);
       const valor = parseFloat(input.value);
 
-      // Si el valor ingresado no es un número, reseteamos el color
       if (isNaN(valor)) {
         input.style.color = 'black';
         return;
       }
 
-      // Compara si el valor esta fuera del rango de referencia
       if (valor < min || valor > max) {
-        input.style.color = 'red';   // Fuera de rango
+        input.style.color = 'red';
       } else {
-        input.style.color = 'black'; // Dentro de rango
+        input.style.color = 'black';
       }
     }
 
-    // Cargar información en el modal y añadir validación de resultados
-    document.addEventListener("DOMContentLoaded", () => {
 
+    document.addEventListener("DOMContentLoaded", () => {
       const inputsDeResultado = document.querySelectorAll("input[name^='resultado_']");
 
       inputsDeResultado.forEach(input => {
-        // Validar el valor inicial al cargar la página
         validarResultado(input);
-
-        // Añadir un listener para que valide cada vez que el usuario escribe
         input.addEventListener('input', () => {
           validarResultado(input);
         });
       });
 
-
       const form = document.getElementById("registrarResultadosForm");
       if (form) {
         const modalBodyTable = document.getElementById("confirmTableBody");
-        const inputs = form.querySelectorAll("input[type='text'][name^='resultado_']");
+        const inputs = form.querySelectorAll("input[type='number'][name^='resultado_']");
 
         const updateModalTable = () => {
-          modalBodyTable.innerHTML = ""; // Limpiar tabla del modal
+          modalBodyTable.innerHTML = "";
           inputs.forEach(input => {
             const row = document.createElement("tr");
-
-            // Aplicar el estilo al modal de confirmación si el color es rojo
             const estiloColor = (input.style.color === 'red') ? 'style="color: red; font-weight: bold;"' : '';
-
             row.innerHTML = `
               <td>${input.dataset.examen}</td>
               <td>${input.dataset.determinacion}</td>
@@ -140,7 +143,6 @@ block content
       }
     });
 
-    // Enviar el formulario
     function enviarFormulario() {
       document.getElementById("registrarResultadosForm").submit();
     }

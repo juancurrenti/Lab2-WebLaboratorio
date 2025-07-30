@@ -1,59 +1,28 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
-const Paciente = require("./paciente");
-const TiposMuestra = require("./tipos_muestra");
 
-const Muestra = sequelize.define(
-  "Muestra",
-  {
+module.exports = (sequelize) => {
+  const Muestra = sequelize.define('Muestra', {
     id_Muestra: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    id_Orden: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: "ordenes_trabajo",
-        key: "id_Orden",
-      },
-    },
-    id_Paciente: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: Paciente,
-        key: "id_paciente",
-      },
-    },
-    idTipoMuestra: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: TiposMuestra,
-        key: "idTipoMuestra",
-      },
-    },
-    Fecha_Recepcion: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    estado: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: "pendiente",
-    },
-  },
-  {
-    timestamps: false,
-    tableName: "muestra",
-  }
-);
+    id_Orden: { type: DataTypes.INTEGER, allowNull: false },
+    id_Paciente: { type: DataTypes.INTEGER, allowNull: false },
+    idTipoMuestra: { type: DataTypes.INTEGER, allowNull: false },
+    Fecha_Recepcion: { type: DataTypes.DATE },
+    estado: { type: DataTypes.STRING }
+  }, {
+    tableName: 'muestras',
+    timestamps: false
+  });
 
-// Relaciones
-Muestra.belongsTo(Paciente, { foreignKey: "id_Paciente", as: "Paciente" });
-Muestra.belongsTo(TiposMuestra, { foreignKey: "idTipoMuestra", as: "TipoMuestra" });
+  Muestra.associate = function(models) {
+    Muestra.belongsTo(models.Paciente, { foreignKey: "id_Paciente", as: "paciente" });
+    Muestra.belongsTo(models.OrdenTrabajo, { foreignKey: "id_Orden", as: "ordenTrabajo" });
+    Muestra.belongsTo(models.TiposMuestra, { foreignKey: "idTipoMuestra", as: "tipoMuestra" });
+    Muestra.hasMany(models.Resultado, { foreignKey: 'id_Muestra', as: 'resultados' });
+  };
 
-module.exports = Muestra;
+  return Muestra;
+};

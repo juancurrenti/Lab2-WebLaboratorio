@@ -61,6 +61,7 @@ block content
         input#tiempo_demora(type="number" name="tiempo_demora" class="form-control" min="0" required)
 
       button.btn.btn-success.mt-2#guardar_examen(type="button") Guardar Cambios
+      a.btn.btn-secondary.ms-2.mt-2(href="javascript:history.back()") Volver
 
     // Modal de Confirmación
     .modal#confirmationModal(tabindex="-1" role="dialog")
@@ -81,7 +82,7 @@ block content
         const examenes = !{JSON.stringify(examenes)};
         let examenSeleccionado = null;
 
-        // Buscar exámenes
+
         $('#buscar_examen').on('input', function() {
           const query = $(this).val().toLowerCase();
           $('#lista_resultados').empty();
@@ -108,7 +109,7 @@ block content
           }
         });
 
-        // Seleccionar examen
+
         $(document).on('click', '.resultado', function() {
           const id = $(this).data('id');
           const nombre = $(this).data('nombre');
@@ -118,7 +119,7 @@ block content
           const tipoMuestra = $(this).data('tipo');
           const tiempoDemora = $(this).data('tiempo');
 
-          // Rellenar el formulario con los datos del examen seleccionado
+
           $('#id_examen').val(id);
           $('#nombre_examen').val(nombre.trim());
           $('#descripcion').val(descripcion.trim());
@@ -131,7 +132,6 @@ block content
           $('#resultados_busqueda').hide();
         });
 
-        // Guardar examen
         $('#guardar_examen').on('click', function() {
           const nombre = $('#nombre_examen').val();
           const descripcion = $('#descripcion').val();
@@ -140,7 +140,6 @@ block content
           const tipoMuestra = $('#tipo_muestra option:selected').text();
           const tiempoDemora = $('#tiempo_demora').val();
 
-          // Mostrar datos en el modal
           $('#modalContent').html(`            
             <strong>Nombre:</strong> ${nombre}<br>
             <strong>Descripción:</strong> ${descripcion}<br>
@@ -153,14 +152,11 @@ block content
           const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
           modal.show();
 
-          // Confirmar envío
+
           $('#confirmSubmit').off('click').on('click', function() {
             $('#form_modificar_examen').submit();
           });
         });
           $('#form_modificar_examen').on('submit', function(event) {
-            event.preventDefault();
-            alert('Examen actualizado con exito');
-            this.submit();
           });
       });

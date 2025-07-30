@@ -1,233 +1,286 @@
 extends layout
 
 block content
-  - const isEditMode = paciente && paciente.id_paciente
+    - const isEditMode = paciente && paciente.id_paciente
 
-  .container
-    #content
-      h2#titulo= isEditMode ? 'Editar Datos del Paciente' : 'Ingresar Datos del Paciente'
+    .container
+        #content
+            h2#titulo= isEditMode ? 'Editar Datos del Paciente' : 'Ingresar Datos del Paciente'
+            
+            if isEditMode
+                div.mb-3
+                    - const estadoClass = paciente.estado === 'activo' ? 'bg-success' : 'bg-secondary'
+                    - const estadoTexto = paciente.estado === 'activo' ? 'Activo' : 'Inactivo'
+                    h5 Estado: 
+                        span.badge(class=estadoClass)= estadoTexto
 
-      //- Muestra mensajes de error si existen (como "paciente ya existe")
-      if mensaje
-        .alert.alert-danger(role="alert")!= mensaje
+            if mensaje
+                .alert.alert-danger(role="alert")!= mensaje
 
-      //- Formulario con action y method dinámicos
-      form#guardar-form(action=isEditMode ? `/editar-paciente/${paciente.id_paciente}` : "/guardar-paciente", method="post")
-        .row.mb-3
-          .col-md-6
-            .form-group
-              label(for="nombre") Nombre:
-              input#nombre.form-control(type="text" name="nombre", value=paciente ? paciente.nombre : '', required)
-              .invalid-feedback El nombre solo puede contener letras y espacios.
-          .col-md-6
-            .form-group
-              label(for="apellido") Apellido:
-              input#apellido.form-control(type="text" name="apellido", value=paciente ? paciente.apellido : '', required)
-              .invalid-feedback El apellido solo puede contener letras y espacios.
-        
-        .row.mb-3
-          .col-md-6
-            .form-group
-              label(for="dni") DNI:
-              input#dni.form-control(type="text" name="dni", value=paciente ? paciente.dni : '', required, readonly=isEditMode)
-              .invalid-feedback El DNI debe contener solo números.
-          .col-md-6
-            .form-group
-              label(for="fecha_nacimiento") Fecha de Nacimiento:
-              - let fechaISO = '';
-              - if (isEditMode && paciente.fecha_nacimiento) {
-              -   fechaISO = new Date(paciente.fecha_nacimiento).toISOString().split('T')[0];
-              - }
-              input#fecha_nacimiento.form-control(type="date" name="fecha_nacimiento", value=fechaISO, required)
-              .invalid-feedback La fecha de nacimiento es obligatoria.
+            form#guardar-form(action=isEditMode ? `/editar-paciente/${paciente.id_paciente}` : "/guardar-paciente", method="post")
+                .row.mb-3
+                    .col-md-6
+                        .form-group
+                            label(for="nombre") Nombre:
+                            input#nombre.form-control(type="text" name="nombre", value=paciente ? paciente.nombre : '', required)
+                            .invalid-feedback El nombre solo puede contener letras y espacios.
+                    .col-md-6
+                        .form-group
+                            label(for="apellido") Apellido:
+                            input#apellido.form-control(type="text" name="apellido", value=paciente ? paciente.apellido : '', required)
+                            .invalid-feedback El apellido solo puede contener letras y espacios.
+                
+                .row.mb-3
+                    .col-md-6
+                        .form-group
+                            label(for="dni") DNI:
+                            input#dni.form-control(type="text" name="dni", value=paciente ? paciente.dni : '', required, readonly=isEditMode)
+                            .invalid-feedback El DNI debe contener solo números.
+                    .col-md-6
+                        .form-group
+                            label(for="fecha_nacimiento") Fecha de Nacimiento:
+                            - let fechaISO = '';
+                            - if (isEditMode && paciente.fecha_nacimiento) {
+                            -   fechaISO = new Date(paciente.fecha_nacimiento).toISOString().split('T')[0];
+                            - }
+                            input#fecha_nacimiento.form-control(type="date" name="fecha_nacimiento", value=fechaISO, required)
+                            .invalid-feedback La fecha de nacimiento es obligatoria.
 
-        .row.mb-3
-          .col-md-6
-            .form-group
-              label(for="genero") Género:
-              select#genero.form-control(name="genero", required)
-                option(value="" disabled selected=!paciente) Seleccione...
-                //- Se usa toLowerCase() para ser compatible con el script de validación
-                option(value="femenino" selected=paciente && paciente.genero && paciente.genero.toLowerCase() === 'femenino') Femenino
-                option(value="masculino" selected=paciente && paciente.genero && paciente.genero.toLowerCase() === 'masculino') Masculino
-              .invalid-feedback Por favor seleccione un género.
-          .col-md-6
-            #embarazo-group.form-group(style="display: none;")
-              label(for="embarazo") ¿Embarazo?
-              select#embarazo.form-control(name="embarazo")
-                option(value="No" selected=paciente && paciente.embarazo === 'No') No
-                option(value="Sí" selected=paciente && paciente.embarazo === 'Sí') Sí
-        
-        .form-group.mb-3
-          label(for="direccion") Dirección:
-          input#direccion.form-control(type="text" name="direccion", value=paciente ? paciente.direccion : '', required)
-          .invalid-feedback La dirección no puede estar vacía.
-          
-        .row.mb-3
-          .col-md-6
-            .form-group
-              label(for="telefono") Teléfono:
-              input#telefono.form-control(type="text" name="telefono", value=paciente ? paciente.telefono : '', required)
-              .invalid-feedback El teléfono debe contener solo números y un formato válido.
-          .col-md-6
-            .form-group
-              label(for="email") Correo Electrónico:
-              input#email.form-control(type="email" name="email", value=paciente ? paciente.email : '', required, readonly=isEditMode)
-              .invalid-feedback Ingrese un correo electrónico válido.
+                .row.mb-3
+                    .col-md-6
+                        .form-group
+                            label(for="genero") Género:
+                            select#genero.form-control(name="genero", required)
+                                option(value="" disabled selected=!paciente) Seleccione...
+                                option(value="femenino" selected=paciente && paciente.genero && paciente.genero.toLowerCase() === 'femenino') Femenino
+                                option(value="masculino" selected=paciente && paciente.genero && paciente.genero.toLowerCase() === 'masculino') Masculino
+                            .invalid-feedback Por favor seleccione un género.
+                    .col-md-6
+                        #embarazo-group.form-group(style="display: none;")
+                            label(for="embarazo") ¿Embarazo?
+                            select#embarazo.form-control(name="embarazo")
+                                option(value="No" selected=paciente && paciente.embarazo === 'No') No
+                                option(value="Sí" selected=paciente && paciente.embarazo === 'Sí') Sí
+                
+                .form-group.mb-3
+                    label(for="direccion") Dirección:
+                    input#direccion.form-control(type="text" name="direccion", value=paciente ? paciente.direccion : '', required)
+                    .invalid-feedback La dirección no puede estar vacía.
+                    
+                .row.mb-3
+                    .col-md-6
+                        .form-group
+                            label(for="telefono") Teléfono:
+                            input#telefono.form-control(type="text" name="telefono", value=paciente ? paciente.telefono : '', required)
+                            .invalid-feedback El teléfono debe contener solo números y un formato válido.
+                    .col-md-6
+                        .form-group
+                            label(for="email") Correo Electrónico:
+                            input#email.form-control(type="email" name="email", value=paciente ? paciente.email : '', required, readonly=isEditMode)
+                            .invalid-feedback Ingrese un correo electrónico válido.
+                
+                button#confirmar-btn.btn.btn-primary(type="button")= isEditMode ? 'Actualizar Datos' : 'Confirmar Datos'
+                
+                if isEditMode
+                    if paciente.estado === 'activo'
+                        button.btn.btn-danger.ms-2(type="button" data-bs-toggle="modal" data-bs-target="#deactivateConfirmModal") Desactivar Paciente
+                    else
+                        button.btn.btn-success.ms-2(type="button" data-bs-toggle="modal" data-bs-target="#reactivateConfirmModal") Reactivar Paciente
 
-        .form-group.mb-3
-          label(for="diagnostico") Diagnóstico (presuntivo o confirmado):
-          input#diagnostico.form-control(type="text" name="diagnostico", value=paciente ? paciente.diagnostico : '', required)
-          .invalid-feedback El diagnóstico solo puede contener letras y espacios.
-        
-        button#confirmar-btn.btn.btn-primary(type="button")= isEditMode ? 'Actualizar Datos' : 'Confirmar Datos'
+    .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
+        .modal-dialog
+            .modal-content
+                .modal-header
+                    h5.modal-title#confirmModalLabel Confirmación de Datos
+                    button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                .modal-body
+                    p: b Nombre: 
+                        span#confirm-nombre
+                    p: b Apellido: 
+                        span#confirm-apellido
+                    p: b DNI: 
+                        span#confirm-dni
+                    p: b Fecha de Nacimiento: 
+                        span#confirm-fecha_nacimiento
+                    p: b Género: 
+                        span#confirm-genero
+                    p: b Dirección: 
+                        span#confirm-direccion
+                    p: b Teléfono: 
+                        span#confirm-telefono
+                    p: b Correo Electrónico: 
+                        span#confirm-email
+                .modal-footer
+                    button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Editar
+                    button.btn.btn-primary(type="submit" form="guardar-form")= isEditMode ? 'Confirmar Actualización' : 'Confirmar y Guardar'
 
+    if isEditMode
+        if paciente.estado === 'activo'
+            .modal.fade#deactivateConfirmModal(tabindex="-1" aria-labelledby="deactivateModalLabel" aria-hidden="true")
+                .modal-dialog
+                    .modal-content
+                        .modal-header
+                            h5.modal-title#deactivateModalLabel Confirmar Desactivación
+                            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                        .modal-body
+                            p ¿Estás seguro de que deseas desactivar a 
+                                strong #{paciente.nombre} #{paciente.apellido}
+                                | ?
+                            p.text-muted Esta acción ocultará al paciente y todos sus datos asociados de las búsquedas.
+                        .modal-footer
+                            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+                            button.btn.btn-danger#confirmar-desactivacion-btn(
+                                type="button",
+                                data-paciente-id=paciente.id_paciente
+                            ) Confirmar Desactivación
+        else
+            .modal.fade#reactivateConfirmModal(tabindex="-1" aria-labelledby="reactivateModalLabel" aria-hidden="true")
+                .modal-dialog
+                    .modal-content
+                        .modal-header
+                            h5.modal-title#reactivateModalLabel Confirmar Reactivación
+                            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                        .modal-body
+                            p ¿Estás seguro de que deseas reactivar a 
+                                strong #{paciente.nombre} #{paciente.apellido}
+                                | ?
+                            p.text-muted Al confirmar, el paciente y sus registros volverán a ser visibles en el sistema.
+                        .modal-footer
+                            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+                            button.btn.btn-success#confirmar-reactivacion-btn(
+                                type="button",
+                                data-paciente-id=paciente.id_paciente
+                            ) Confirmar Reactivación
 
-  //- Modal de confirmación (sin cambios)
-  .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
-    .modal-dialog
-      .modal-content
-        .modal-header
-          h5.modal-title#confirmModalLabel Confirmación de Datos
-          button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
-        .modal-body
-          p: b Nombre: 
-            span#confirm-nombre
-          p: b Apellido: 
-            span#confirm-apellido
-          p: b DNI: 
-            span#confirm-dni
-          p: b Fecha de Nacimiento: 
-            span#confirm-fecha_nacimiento
-          p: b Género: 
-            span#confirm-genero
-          p: b Dirección: 
-            span#confirm-direccion
-          p: b Teléfono: 
-            span#confirm-telefono
-          p: b Correo Electrónico: 
-            span#confirm-email
-          p: b Diagnóstico: 
-            span#confirm-diagnostico
-        .modal-footer
-          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Editar
-          button.btn.btn-primary(type="submit" form="guardar-form")= isEditMode ? 'Confirmar Actualización' : 'Confirmar y Guardar'
+    script.
+        $(document).ready(function () {
+            const generoSelect = $('#genero');
+            const embarazoGroup = $('#embarazo-group');
+            const embarazoHidden = $('#embarazo-hidden');
+            const regexText = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
+            const regexDni = /^\d+$/;
+            const regexTelefono = /^[0-9]{7,15}$/;
+            const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const regexDireccion = /^[a-zA-Z0-9\s.,'#\-°]+$/;
 
-  //- Script de validación completo (tu código original)
-  script.
-    $(document).ready(function () {
-      const generoSelect = $('#genero');
-      const embarazoGroup = $('#embarazo-group');
-      const embarazoHidden = $('#embarazo-hidden');
-      const regexText = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/;
-      const regexDni = /^\d+$/;
-      const regexTelefono = /^[0-9]{7,15}$/;
-      const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const setFechaNacimientoLimits = () => {
+                const today = new Date().toISOString().split('T')[0];
+                $('#fecha_nacimiento').attr('min', '1900-01-01');
+                $('#fecha_nacimiento').attr('max', today);
+            };
 
-      const setFechaNacimientoLimits = () => {
-        const today = new Date().toISOString().split('T')[0];
-        $('#fecha_nacimiento').attr('min', '1900-01-01');
-        $('#fecha_nacimiento').attr('max', today);
-      };
+            const toggleEmbarazoField = () => {
+                const selectedGenero = generoSelect.val();
+                if (selectedGenero === 'femenino') {
+                    embarazoGroup.show();
+                    embarazoHidden.prop('disabled', true);
+                } else {
+                    embarazoGroup.hide();
+                    embarazoHidden.prop('disabled', false);
+                }
+            };
 
-      const toggleEmbarazoField = () => {
-        const selectedGenero = generoSelect.val();
-        if (selectedGenero === 'femenino') {
-          embarazoGroup.show();
-          embarazoHidden.prop('disabled', true);
-        } else {
-          embarazoGroup.hide();
-          embarazoHidden.prop('disabled', false);
-        }
-      };
+            const validateField = (input, regex, emptyMsg, invalidMsg) => {
+                const value = input.val().trim();
+                if (value === '') {
+                    input.addClass('is-invalid');
+                    input.next('.invalid-feedback').text(emptyMsg).show();
+                    return false;
+                }
+                if (!regex.test(value)) {
+                    input.addClass('is-invalid');
+                    input.next('.invalid-feedback').text(invalidMsg).show();
+                    return false;
+                }
+                input.removeClass('is-invalid');
+                input.next('.invalid-feedback').hide();
+                return true;
+            };
 
-      const validateField = (input, regex, emptyMsg, invalidMsg) => {
-        const value = input.val().trim();
-        if (value === '') {
-          input.addClass('is-invalid');
-          input.next('.invalid-feedback').text(emptyMsg).show();
-          return false;
-        }
-        if (!regex.test(value)) {
-          input.addClass('is-invalid');
-          input.next('.invalid-feedback').text(invalidMsg).show();
-          return false;
-        }
-        input.removeClass('is-invalid');
-        input.next('.invalid-feedback').hide();
-        return true;
-      };
+            const validateFechaNacimiento = () => {
+                const fechaNacimiento = $('#fecha_nacimiento').val();
+                const minDate = new Date('1900-01-01');
+                const maxDate = new Date();
+                const fechaIngresada = new Date(fechaNacimiento);
+                if (!fechaNacimiento || fechaIngresada < minDate || fechaIngresada > maxDate) {
+                    $('#fecha_nacimiento').addClass('is-invalid');
+                    $('#fecha_nacimiento').next('.invalid-feedback').text('La fecha de nacimiento debe estar entre 01/01/1900 y la fecha actual.').show();
+                    return false;
+                } else {
+                    $('#fecha_nacimiento').removeClass('is-invalid');
+                    $('#fecha_nacimiento').next('.invalid-feedback').hide();
+                    return true;
+                }
+            };
 
-      const validateFechaNacimiento = () => {
-        const fechaNacimiento = $('#fecha_nacimiento').val();
-        const minDate = new Date('1900-01-01');
-        const maxDate = new Date();
-        const fechaIngresada = new Date(fechaNacimiento);
-        if (!fechaNacimiento || fechaIngresada < minDate || fechaIngresada > maxDate) {
-          $('#fecha_nacimiento').addClass('is-invalid');
-          $('#fecha_nacimiento').next('.invalid-feedback').text('La fecha de nacimiento debe estar entre 01/01/1900 y la fecha actual.').show();
-          return false;
-        } else {
-          $('#fecha_nacimiento').removeClass('is-invalid');
-          $('#fecha_nacimiento').next('.invalid-feedback').hide();
-          return true;
-        }
-      };
+            $('#nombre').on('blur', function() {
+                validateField($(this), regexText, 'Por favor, complete el nombre.', 'El nombre solo puede contener letras y espacios.');
+            });
+            $('#apellido').on('blur', function() {
+                validateField($(this), regexText, 'Por favor, complete el apellido.', 'El apellido solo puede contener letras y espacios.');
+            });
+            $('#dni').on('blur', function() {
+                validateField($(this), regexDni, 'Por favor, complete el DNI.', 'El DNI debe contener solo números.');
+            });
+            $('#telefono').on('blur', function() {
+                validateField($(this), regexTelefono, 'Por favor, complete el teléfono.', 'El teléfono debe contener solo números.');
+            });
+            $('#email').on('blur', function() {
+                validateField($(this), regexEmail, 'Por favor, complete el correo electrónico.', 'Ingrese un correo electrónico válido.');
+            });
+            $('#fecha_nacimiento').on('blur', function() {
+                validateFechaNacimiento();
+            });
+            $('#direccion').on('blur', function() {
+                validateField($(this), regexDireccion, 'Por favor, complete la dirección.', 'La dirección contiene caracteres no válidos.');
+            });
 
-      $('#nombre').on('blur', function() {
-        validateField($(this), regexText, 'Por favor, complete el nombre.', 'El nombre solo puede contener letras y espacios.');
-      });
-      $('#apellido').on('blur', function() {
-        validateField($(this), regexText, 'Por favor, complete el apellido.', 'El apellido solo puede contener letras y espacios.');
-      });
-      $('#dni').on('blur', function() {
-        validateField($(this), regexDni, 'Por favor, complete el DNI.', 'El DNI debe contener solo números.');
-      });
-      $('#telefono').on('blur', function() {
-        validateField($(this), regexTelefono, 'Por favor, complete el teléfono.', 'El teléfono debe contener solo números.');
-      });
-      $('#email').on('blur', function() {
-        validateField($(this), regexEmail, 'Por favor, complete el correo electrónico.', 'Ingrese un correo electrónico válido.');
-      });
-      $('#diagnostico').on('blur', function() {
-        validateField($(this), regexText, 'Por favor, complete el diagnóstico.', 'El diagnóstico solo puede contener letras y espacios.');
-      });
-      $('#fecha_nacimiento').on('blur', function() {
-        validateFechaNacimiento();
-      });
+            generoSelect.on('change', toggleEmbarazoField);
+            toggleEmbarazoField();
+            setFechaNacimientoLimits();
 
-      generoSelect.on('change', toggleEmbarazoField);
-      toggleEmbarazoField();
-      setFechaNacimientoLimits();
+            $('#confirmar-btn').on('click', function () {
+                const isNombreValid = validateField($('#nombre'), regexText, 'Por favor, complete el nombre.', 'El nombre solo puede contener letras y espacios.');
+                const isApellidoValid = validateField($('#apellido'), regexText, 'Por favor, complete el apellido.', 'El apellido solo puede contener letras y espacios.');
+                const isDniValid = validateField($('#dni'), regexDni, 'Por favor, complete el DNI.', 'El DNI debe contener solo números.');
+                const isFechaNacimientoValid = validateFechaNacimiento();
+                const isGeneroValid = $('#genero').val() !== null;
+                const isDireccionValid = validateField($('#direccion'), regexDireccion, 'Por favor, complete la dirección.', 'La dirección contiene caracteres no válidos.');
+                const isTelefonoValid = validateField($('#telefono'), regexTelefono, 'Por favor, complete el teléfono.', 'El teléfono debe contener solo números.');
+                const isEmailValid = validateField($('#email'), regexEmail, 'Por favor, complete el correo electrónico.', 'Ingrese un correo electrónico válido.');
 
-      $('#confirmar-btn').on('click', function () {
-        const isNombreValid = validateField($('#nombre'), regexText, 'Por favor, complete el nombre.', 'El nombre solo puede contener letras y espacios.');
-        const isApellidoValid = validateField($('#apellido'), regexText, 'Por favor, complete el apellido.', 'El apellido solo puede contener letras y espacios.');
-        const isDniValid = validateField($('#dni'), regexDni, 'Por favor, complete el DNI.', 'El DNI debe contener solo números.');
-        const isFechaNacimientoValid = validateFechaNacimiento();
-        const isGeneroValid = $('#genero').val() !== null;
-        const isDireccionValid = $('#direccion').val().trim() !== '' ? true : (() => {
-          $('#direccion').addClass('is-invalid');
-          $('#direccion').next('.invalid-feedback').text('La dirección no puede estar vacía.').show();
-          return false;
-        })();
-        const isTelefonoValid = validateField($('#telefono'), regexTelefono, 'Por favor, complete el teléfono.', 'El teléfono debe contener solo números.');
-        const isEmailValid = validateField($('#email'), regexEmail, 'Por favor, complete el correo electrónico.', 'Ingrese un correo electrónico válido.');
-        const isDiagnosticoValid = validateField($('#diagnostico'), regexText, 'Por favor, complete el diagnóstico.', 'El diagnóstico solo puede contener letras y espacios.');
+                if (isNombreValid && isApellidoValid && isDniValid && isFechaNacimientoValid && isGeneroValid && isDireccionValid && isTelefonoValid && isEmailValid) {
+                    $('#confirm-nombre').text($('#nombre').val());
+                    $('#confirm-apellido').text($('#apellido').val());
+                    $('#confirm-dni').text($('#dni').val());
+                    $('#confirm-fecha_nacimiento').text($('#fecha_nacimiento').val());
+                    $('#confirm-genero').text($('#genero').val());
+                    $('#confirm-direccion').text($('#direccion').val());
+                    $('#confirm-telefono').text($('#telefono').val());
+                    $('#confirm-email').text($('#email').val());
+                    $('#confirmModal').modal('show');
+                } else {
+                    alert('Por favor corrija los campos inválidos antes de continuar.');
+                }
+            });
 
-        if (isNombreValid && isApellidoValid && isDniValid && isFechaNacimientoValid && isGeneroValid && isDireccionValid && isTelefonoValid && isEmailValid && isDiagnosticoValid) {
-          $('#confirm-nombre').text($('#nombre').val());
-          $('#confirm-apellido').text($('#apellido').val());
-          $('#confirm-dni').text($('#dni').val());
-          $('#confirm-fecha_nacimiento').text($('#fecha_nacimiento').val());
-          $('#confirm-genero').text($('#genero').val());
-          $('#confirm-direccion').text($('#direccion').val());
-          $('#confirm-telefono').text($('#telefono').val());
-          $('#confirm-email').text($('#email').val());
-          $('#confirm-diagnostico').text($('#diagnostico').val());
-          $('#confirmModal').modal('show');
-        } else {
-          alert('Por favor corrija los campos inválidos antes de continuar.');
-        }
-      });
-    });
+            // Lógica para el botón de desactivación
+            $('#confirmar-desactivacion-btn').on('click', function() {
+                const pacienteId = $(this).data('paciente-id');
+                if (!pacienteId) return alert('Error: No se encontró el ID del paciente.');
+
+                const url = `/desactivar-paciente/${pacienteId}`;
+                fetch(url, { method: 'POST' })
+                    .then(response => { if (response.redirected) window.location.href = response.url; });
+            });
+
+            // Lógica para el botón de reactivación
+            $('#confirmar-reactivacion-btn').on('click', function() {
+                const pacienteId = $(this).data('paciente-id');
+                if (!pacienteId) return alert('Error: No se encontró el ID del paciente.');
+
+                const url = `/reactivar-paciente/${pacienteId}`;
+                fetch(url, { method: 'POST' })
+                    .then(response => { if (response.redirected) window.location.href = response.url; });
+            });
+        });

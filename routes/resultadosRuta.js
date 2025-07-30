@@ -1,50 +1,32 @@
 const express = require("express");
 const router = express.Router();
-const Muestra = require("../models/muestra");
-const Paciente = require("../models/paciente");
-const PDFDocument = require("pdfkit");
-const Examen = require("../models/examen");
-const Orden = require("../models/ordenes_trabajo");
-const Determinacion = require("../models/determinacion");
-const Resultado = require("../models/resultados");
-const ValoresReferencia = require("../models/valoresReferencia");
-const sequelize = require("../config/database");
-const auditoriaController = require("../routes/AuditoriaRuta");
 
-const fs = require("fs");
+const { Muestra, Paciente, Examen, Determinacion, Resultado, TiposMuestra } = require("../models");
+const auditoriaController = require("./AuditoriaRuta");
 
-// Ruta para buscar y mostrar muestras asociadas a una orden
+
 router.get("/mostrar/:id_orden", async (req, res) => {
-     // Verifica la autenticación del usuario
-     const user = req.user;
-     if (!user || !user.dataValues) {
-       return res.status(401).send("Usuario no autenticado.");
-     }
-     const usuarioId = user.dataValues.id_Usuario;
   const id_orden = req.params.id_orden;
-
   try {
     const muestras = await Muestra.findAll({
       where: { id_Orden: id_orden },
-      include: [{ model: Paciente, as: "Paciente" }],
+      include: [{ model: Paciente, as: "paciente" }],
     });
-
+    const title = `Muestras de la Orden N° ${id_orden}`;
     if (muestras.length > 0) {
-      res.render("muestrasOrden", { id_orden, muestras });
+      res.render("muestrasOrden", {pageTitle: title, id_orden, muestras });
     } else {
-      res.render("muestrasOrden", {
-        mensaje: "No se encontraron muestras para esta orden de trabajo.",
-      });
+      res.render("muestrasOrden", {pageTitle: title, mensaje: "No se encontraron muestras para esta orden." });
     }
   } catch (error) {
-    error("Error al buscar muestras:", error);
+    console.error("Error al buscar muestras:", error);
     res.status(500).json({ error: "Error al buscar muestras" });
   }
 });
 
-// Ruta para generar el PDF de una muestra específica utilizando pdfkit
+
 router.get("/:id_orden/generarPDFMuestra/:idMuestra", async (req, res) => {
-     // Verifica la autenticación del usuario
+
      const user = req.user;
      if (!user || !user.dataValues) {
        return res.status(401).send("Usuario no autenticado.");
@@ -63,7 +45,7 @@ router.get("/:id_orden/generarPDFMuestra/:idMuestra", async (req, res) => {
 
     const pdfDoc = new PDFDocument();
 
-    // Construir el contenido del PDF
+
     pdfDoc.fontSize(12).text("Información de la Muestra\n\n");
 
     pdfDoc.font("Helvetica-Bold");
@@ -83,10 +65,9 @@ router.get("/:id_orden/generarPDFMuestra/:idMuestra", async (req, res) => {
     );
     pdfDoc.text(`Estado: ${muestra.estado}\n`);
 
-    // Finalizar el documento PDF
+
     pdfDoc.end();
 
-    // Obtener el contenido del PDF en formato base64
     const pdfBytes = await new Promise((resolve, reject) => {
       const chunks = [];
       pdfDoc.on("data", (chunk) => chunks.push(chunk));
@@ -96,57 +77,40 @@ router.get("/:id_orden/generarPDFMuestra/:idMuestra", async (req, res) => {
 
     const pdfBase64 = pdfBytes.toString("base64");
 
-    // Enviar el contenido del PDF como respuesta JSON al cliente
+
     res.json({ pdfBase64 });
   } catch (error) {
     error("Error al obtener muestra para PDF:", error);
     res.status(500).json({ error: "Error al obtener muestra para PDF" });
   }
 });
-// Ruta para mostrar la vista de añadir resultados
+
 router.get("/mostrar/aniadirResultados/:id_muestra", async (req, res) => {
-     // Verifica la autenticación del usuario
-     const user = req.user;
-     if (!user || !user.dataValues) {
-       return res.status(401).send("Usuario no autenticado.");
-     }
-     const usuarioId = user.dataValues.id_Usuario;
   const id_muestra = req.params.id_muestra;
-
   try {
-    // Buscar la muestra por ID
     const muestra = await Muestra.findByPk(id_muestra);
+    if (!muestra) return res.status(404).json({ mensaje: "Muestra no encontrada." });
 
-    if (!muestra) {
-      return res.status(404).json({ mensaje: "Muestra no encontrada." });
-    }
+    const tipoMuestra = await TiposMuestra.findByPk(muestra.idTipoMuestra);
+    if (!tipoMuestra) return res.status(404).json({ mensaje: "Tipo de muestra no encontrado." });
 
-    // Obtener el tipo de muestra
-    const tipo_muestra = muestra.Tipo_Muestra;
-
-    // Consultar los exámenes que coinciden con el tipo de muestra
-    const examenes = await Examen.findAll({ where: { tipo_muestra } });
-
-    // Obtener todos los id_examen
+    const examenes = await Examen.findAll({ where: { idTipoMuestra: tipoMuestra.idTipoMuestra } });
     const id_examenes = examenes.map((examen) => examen.id_examen);
+    const determinaciones = await Determinacion.findAll({ where: { id_examen: id_examenes } });
 
-    // Consultar las determinaciones que coinciden con los id_examen
-    const determinaciones = await Determinacion.findAll({
-      where: { id_examen: id_examenes },
-    });
-
-    res.render("aniadirResultados", { muestra, determinaciones });
+    res.render("aniadirResultados", {pageTitle: `Añadir Resultados a Muestra N° ${id_muestra}`, muestra, determinaciones });
   } catch (error) {
-    error("Error al buscar determinaciones:", error);
+    console.error("Error al buscar determinaciones:", error);
     res.status(500).json({ error: "Error al buscar determinaciones" });
   }
 });
 
-// Ruta para obtener valores de referencia según la determinación seleccionada
+
+
 router.get(
   "/mostrar/aniadirResultados/:id_muestra/valoresReferencia/:id_determinacion",
   async (req, res) => {
-       // Verifica la autenticación del usuario
+
        const user = req.user;
        if (!user || !user.dataValues) {
          return res.status(401).send("Usuario no autenticado.");
@@ -158,7 +122,7 @@ router.get(
       const valoresReferencia = await ValoresReferencia.findAll({
         where: { id_Determinacion: id_determinacion },
         attributes: {
-          exclude: ["estado"], // Excluir el campo "estado"
+          exclude: ["estado"],
         },
       });
 
@@ -170,46 +134,21 @@ router.get(
   }
 );
 
-// Ruta para añadir un resultado
+
 router.post("/mostrar/aniadirResultados/:id_muestra", async (req, res) => {
-     // Verifica la autenticación del usuario
-     const user = req.user;
-     if (!user || !user.dataValues) {
-       return res.status(401).send("Usuario no autenticado.");
-     }
   const id_muestra = req.params.id_muestra;
-  const { id_determinacion, valor_final, unidad_medida, custom_unidad_medida } =
-    req.body;
-
-  // Verifica que req.user esté definido y tiene dataValues
-  if (!req.user || !req.user.dataValues) {
-    return res
-      .status(401)
-      .send("Usuario no autenticado o datos de usuario no disponibles.");
-  }
-
-  const usuarioId = req.user.dataValues.id_Usuario;
+  const { id_determinacion, valor_final, unidad_medida, custom_unidad_medida } = req.body;
+  const usuarioId = req.session.usuario.id;
 
   try {
-    // Determinar la unidad de medida a usar
-    const unidadMedida =
-      unidad_medida === "custom" ? custom_unidad_medida : unidad_medida;
+    const unidadMedida = unidad_medida === "custom" ? custom_unidad_medida : unidad_medida;
+    const valorFinalConUnidad = unidadMedida ? `${valor_final} ${unidadMedida}` : valor_final;
 
-    // Concatenar valor_final con unidad de medida
-    const valorFinalConUnidad = unidadMedida
-      ? `${valor_final} ${unidadMedida}`
-      : valor_final;
-
-    // Obtener id_Orden desde la muestra
     const muestra = await Muestra.findByPk(id_muestra);
-    if (!muestra) {
-      return res.status(404).send("Muestra no encontrada.");
-    }
+    if (!muestra) return res.status(404).send("Muestra no encontrada.");
+    
+    const id_Orden = muestra.id_Orden;
 
-    const id_Orden = muestra.id_Orden; // Captura id_Orden
-    log("ID de la orden: " + id_Orden);
-
-    // Crear un nuevo resultado
     await Resultado.create({
       id_Muestra: id_muestra,
       id_determinacion,
@@ -218,23 +157,18 @@ router.post("/mostrar/aniadirResultados/:id_muestra", async (req, res) => {
       fecha_resultado: new Date(),
     });
 
-    // Registro de auditoría
-    await auditoriaController.registrar(
-      usuarioId,
-      "Añadir Resultado",
-      `Añadido un nuevo resultado para la muestra con ID: ${id_muestra}`
-    );
-
-    res.redirect(`/muestras/mostrar/${id_Orden}`); // Redirige a la vista de muestras
+    await auditoriaController.registrar(usuarioId, "Añadir Resultado", `Nuevo resultado para muestra ID: ${id_muestra}`);
+    res.redirect(`/muestras/mostrar/${id_Orden}`);
   } catch (error) {
-    error("Error al añadir resultado:", error);
+    console.error("Error al añadir resultado:", error);
     res.status(500).json({ error: "Error al añadir resultado" });
   }
 });
 
-// Ruta para actualizar el estado de una muestra
+
+
 router.post("/actualizarEstado/:id_muestra", async (req, res) => {
-     // Verifica la autenticación del usuario
+
      const user = req.user;
      if (!user || !user.dataValues) {
        return res.status(401).send("Usuario no autenticado.");
@@ -242,7 +176,7 @@ router.post("/actualizarEstado/:id_muestra", async (req, res) => {
   const id_muestra = req.params.id_muestra;
   const { estado } = req.body;
 
-  // Verifica que req.user esté definido y tiene dataValues
+
   if (!req.user || !req.user.dataValues) {
     return res
       .status(401)
@@ -252,25 +186,25 @@ router.post("/actualizarEstado/:id_muestra", async (req, res) => {
   const usuarioId = req.user.dataValues.id_Usuario;
 
   try {
-    // Buscar la muestra por ID
+
     const muestra = await Muestra.findByPk(id_muestra);
     if (!muestra) {
       req.flash("error_msg", "Muestra no encontrada.");
       return res.redirect(`/muestras/mostrar/${id_muestra}`);
     }
 
-    // Actualizar el estado de la muestra
+
     muestra.estado = estado;
     await muestra.save();
 
-    // Registro de auditoría
+
     await auditoriaController.registrar(
       usuarioId,
       "Actualizar Estado de Muestra",
       `Estado de la muestra con ID: ${id_muestra} actualizado a: ${estado}`
     );
 
-    // Agregar mensaje de éxito y redirigir
+
     req.flash("success_msg", "Estado actualizado con éxito.");
     res.redirect(`/muestras/mostrar/${muestra.id_Orden}`);
   } catch (error) {
@@ -280,16 +214,16 @@ router.post("/actualizarEstado/:id_muestra", async (req, res) => {
   }
 });
 
-// Ruta para actualizar el estado de una orden
+
 router.post("/actualizarEstadoOrden/:id_orden", async (req, res) => {
-     // Verifica la autenticación del usuario
+
      const user = req.user;
      if (!user || !user.dataValues) {
        return res.status(401).send("Usuario no autenticado.");
      }
   const id_orden = req.params.id_orden;
 
-  // Verifica que req.user esté definido y tiene dataValues
+
   if (!req.user || !req.user.dataValues) {
     return res
       .status(401)
@@ -299,7 +233,7 @@ router.post("/actualizarEstadoOrden/:id_orden", async (req, res) => {
   const usuarioId = req.user.dataValues.id_Usuario;
 
   try {
-    // Actualiza el estado de la orden
+
     await Orden.update(
       { estado: "Para validar" },
       {
@@ -307,32 +241,32 @@ router.post("/actualizarEstadoOrden/:id_orden", async (req, res) => {
       }
     );
 
-    // Registro de auditoría
+
     await auditoriaController.registrar(
       usuarioId,
       "Actualizar Estado de Orden",
       `Orden con ID: ${id_orden} actualizada a "Para validar"`
     );
 
-    // Agrega un mensaje de éxito y redirige
+
     req.flash("success_msg", 'Orden actualizada a "Para validar"');
-    res.redirect(`/muestras/detalleOrden/${id_orden}`); // Redirige a la nueva ruta que muestra los detalles de la orden
+    res.redirect(`/muestras/detalleOrden/${id_orden}`);
   } catch (error) {
     error("Error al actualizar el estado de la orden:", error);
     req.flash("error_msg", "Error al actualizar el estado de la orden.");
-    res.redirect(`/muestras/mostrar/${id_orden}`); // Redirige a la vista de las muestras de la orden en caso de error
+    res.redirect(`/muestras/mostrar/${id_orden}`);
   }
 });
 
-// Ruta para mostrar los detalles de una orden
+
 router.get("/detalleOrden/:id_orden", async (req, res) => {
-       // Verifica la autenticación del usuario
+
        const user = req.user;
        if (!user || !user.dataValues) {
          return res.status(401).send("Usuario no autenticado.");
        }
   const idOrden = req.params.id_orden;
-  const idUsuario = req.user ? req.user.id_Usuario : null; // Asumiendo que la ID del usuario está en req.user
+  const idUsuario = req.user ? req.user.id_Usuario : null;
 
   const query = `
 WITH GeneroPaciente AS (
@@ -421,7 +355,7 @@ WHERE
 
   `;
 
-  // Funciones de formato
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
     const date = new Date(dateStr);
@@ -463,8 +397,8 @@ WHERE
           embarazo: row.embarazo,
           diagnostico: row.diagnostico,
           fecha_registro: formatDate(row.fecha_registro),
-          fecha_nacimiento: formatDate(row.fecha_nacimiento), // Añadido aquí
-          edad: row.edad, // Añadido aquí
+          fecha_nacimiento: formatDate(row.fecha_nacimiento),
+          edad: row.edad,
           muestras: [],
         };
         acc.push(orden);
@@ -489,7 +423,6 @@ WHERE
       return acc;
     }, []);
 
-    // Obtener información del usuario logueado
     let usuarioLogueado = {};
     if (idUsuario) {
       const userQuery = `SELECT nombre_usuario FROM Usuarios WHERE id_Usuario = :idUsuario`;
@@ -501,6 +434,7 @@ WHERE
     }
 
     res.render("detalleOrden", {
+      pageTitle: `Detalles de la Orden N° ${idOrden}`,
       ordenes: ordenes,
       usuarioLogueado: usuarioLogueado.nombre_usuario || "Desconocido",
       success_msg: req.flash("success_msg"),
@@ -511,12 +445,12 @@ WHERE
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-// Ruta para actualizar el estado de una orden a "Informada"
+
 router.post("/actualizarEstadoOrden/:id_orden/informada", async (req, res) => {
   const id_orden = req.params.id_orden;
   log("ID de Orden Capturado:", id_orden);
 
-  // Verificar que el usuario está autenticado
+
   if (!req.user || !req.user.dataValues) {
     return res
       .status(401)
@@ -526,7 +460,7 @@ router.post("/actualizarEstadoOrden/:id_orden/informada", async (req, res) => {
   const usuarioId = req.user.dataValues.id_Usuario;
 
   try {
-    // Actualizar el estado de la orden a "Informada"
+
     await Orden.update(
       { estado: "Informada" },
       {
@@ -534,7 +468,7 @@ router.post("/actualizarEstadoOrden/:id_orden/informada", async (req, res) => {
       }
     );
 
-    // Registrar auditoría
+
     await auditoriaController.registrar(
       usuarioId,
       "Actualizar Estado de Orden",
@@ -543,11 +477,11 @@ router.post("/actualizarEstadoOrden/:id_orden/informada", async (req, res) => {
 
     req.flash("success_msg", 'Orden actualizada a "Informada"');
     log("Orden actualizada a 'Informada'");
-    res.redirect(`/muestras/detalleOrden/${id_orden}`); // Redirigir a la vista de detalles de la orden
+    res.redirect(`/muestras/detalleOrden/${id_orden}`);
   } catch (error) {
     error("Error al actualizar el estado de la orden:", error);
     req.flash("error_msg", "Error al actualizar el estado de la orden.");
-    res.redirect(`/muestras/detalleOrden/${id_orden}`); // Redirigir en caso de error
+    res.redirect(`/muestras/detalleOrden/${id_orden}`);
   }
 });
 

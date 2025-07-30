@@ -5,7 +5,7 @@ const tiposMuestra = [
   { value: "liquidoCefaloraquideo", label: "Líquido Cefalorraquídeo" },
   { value: "saliva", label: "Saliva" },
   { value: "nasofaringea", label: "Secreción Nasofaríngea" },
-  // Agrega más tipos de muestra aquí
+
 ];
 
 module.exports = tiposMuestra;

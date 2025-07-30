@@ -1,653 +1,140 @@
 const express = require("express");
-const multer = require("multer");
-const { Op } = require("sequelize");
-const crypto = require("crypto");
 const path = require("path");
-const app = express();
-const router = express.Router();
 const bodyParser = require("body-parser");
-const sequelize = require("./config/database");
+const flash = require("connect-flash");
+const passport = require("passport");
+const session = require("express-session");
+require('dotenv').config();
+
+require('./config/auth'); 
+
+const app = express();
+
+const { sequelize } = require("./models");
+const { checkRole } = require('./config/middlewares');
+
 const pacienteRuta = require("./routes/pacienteRuta");
 const determinacionesRuta = require("./routes/determinacionesRuta");
 const examenRuta = require("./routes/examenRuta");
-const OrdenesTrabajoRuta = require("./routes/ordenes_trabajoRuta");
+const ordenes_trabajoRuta = require("./routes/ordenes_trabajoRuta");
 const valoresRefRuta = require("./routes/valoresRefRuta");
 const modificarExamenRuta = require("./routes/modificarExamenRuta");
-const modificarDeterminacionRuta = require("./routes/modificarDeterminacionRuta");
 const buscarOrdenesRuta = require("./routes/buscarOrdenesRuta");
-const modificarValrefRuta = require("./routes/modificarValrefRuta");
-const auditoriaController = require("./routes/AuditoriaRuta");
-const muestrasRouter = require("./routes/resultadosRuta");
-const flash = require("connect-flash");
-const passport = require("passport");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
-const session = require("express-session");
-const LocalStrategy = require("passport-local").Strategy;
-const User = require("./models/User");
-require('dotenv').config();
-const transporter = require('./config/mailConfig'); // 👈 Nuevo require
+const resultadosRuta = require("./routes/resultadosRuta");
+const adminRuta = require('./routes/adminRuta');
+const usuarioRuta = require('./routes/usuarioRuta');
+
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "views"));
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "public/uploads")); // Carpeta de destino
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = crypto.randomBytes(16).toString("hex");
-    cb(null, `${uniqueName}${path.extname(file.originalname)}`); // Nombre único con extensión original
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Límite de tamaño: 5 MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const mimeType = allowedTypes.test(file.mimetype);
-    const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-
-    if (mimeType && extName) {
-      return cb(null, true);
-    }
-    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, gif)."));
-  },
-});
-// Middleware para servir archivos estáticos desde la carpeta '/public'
-app.use(
-  "/public",
-  express.static(path.join(__dirname, "public"), {
-    setHeaders: (res, path, stat) => {
-      res.set("Content-Type", "text/css"); // Configura el tipo de contenido para archivos CSS
-    },
-  })
-);
-
-// Middleware para body parsing
+app.use("/public", express.static(path.join(__dirname, "public")));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.json());
 
-// Configuración de express-session (habilita sesiones)
-app.use(
-  session({
-    secret: "1234",
-    resave: false,
-    saveUninitialized: true,
-  })
-);
-
-// Habilita connect-flash
+app.use(session({
+  secret: process.env.SESSION_SECRET || "tu_secreto_super_seguro",
+  resave: false,
+  saveUninitialized: false,
+}));
 app.use(flash());
-
-// Middleware para asignar los mensajes flash a res.locals
-app.use((req, res, next) => {
-  res.locals.successMessages = req.flash("success");
-  res.locals.errorMessages = req.flash("error");
-  next();
-});
-
-
-// Inicialización de Passport y sesión después de la configuración de sesión
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Configuración de la estrategia local de Passport.js
-passport.use(
-  new LocalStrategy(
-    {
-      usernameField: "correo_electronico",
-      passwordField: "password",
-    },
-    async (username, password, done) => {
-      try {
-        if (!username || !password) {
-          return done(null, false, { message: "Credenciales incorrectas" });
-        }
-
-        const user = await User.findOne({
-          where: { correo_electronico: username },
-        });
-
-        if (!user) {
-          return done(null, false, { message: "Credenciales incorrectas" });
-        }
-
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        if (!passwordMatch) {
-          return done(null, false, { message: "Credenciales incorrectas" });
-        }
-
-        return done(null, user);
-      } catch (error) {
-        console.error("Error de autenticación:", error);
-        return done(error);
-      }
-    }
-  )
-);
-
-// Serialización y deserialización de usuarios con Passport.js
-passport.serializeUser((user, done) => {
-  done(null, user.id_Usuario);
-});
-
-passport.deserializeUser(async (id_Usuario, done) => {
-  try {
-    const user = await User.findByPk(id_Usuario, {
-      attributes: ["id_Usuario", "correo_electronico", "rol", "nombre_usuario", "urlFoto", "password"], // Incluye correo electrónico
-
-    });
-    if (!user) {
-      done(null, false);
-    } else {
-      done(null, user);
-    }
-  } catch (error) {
-    done(error);
-  }
-});
 app.use((req, res, next) => {
-  res.locals.query = req.query;
-  if (req.isAuthenticated()) {
-    res.locals.rol = req.user.rol; // Agrega el rol a las vistas
-    res.locals.nombreUsuario = req.user.nombre_usuario;
-    res.locals.urlFoto = req.user.urlFoto || "/public/img/default-avatar.png"; // Foto del usuario o predeterminada
-    // Nombre del usuario
-  } else {
-    res.locals.rol = "";
-    res.locals.nombreUsuario = ""; // Nombre del usuario
+  res.locals.pageTitle = 'Laboratorio La Punta'; 
+  res.locals.successMessages = req.flash("success");
+  res.locals.errorMessages = req.flash("error");
+  if (req.isAuthenticated() && req.session.usuario) {
+    res.locals.nombreUsuario = req.session.usuario.nombre;
+    res.locals.rol = req.session.usuario.rolEmpleado;
   }
   next();
 });
 
-// Middleware para verificar roles
-function checkRole(roles) {
-  return (req, res, next) => {
-    if (
-      req.isAuthenticated() &&
-      (roles.includes(req.user.rol))
-    ) {
-      return next(); // Si el usuario tiene el rol adecuado o es un admin, permite el acceso
-    } else {
-      res.status(403).send("Acceso no autorizado");
-    }
-  };
-}
+const todosLosRoles = ['recepcionista', 'tecnico', 'bioquimico', 'admin'];
+const rolesTecnicos = ['tecnico', 'bioquimico', 'admin'];
 
-
-
-
-// Configurar flash messages
-app.use(flash());
-
-// Middleware para pasar los mensajes flash a las vistas
-app.use(require("connect-flash")());
-app.use((req, res, next) => {
-  res.locals.successMessage = req.flash("success");
-  next();
-});
-
-// Rutas protegidas por roles
+app.use('/admin', checkRole(['admin']), adminRuta);
 app.use("/", pacienteRuta);
-app.use("/buscarOrdenes", checkRole(["tecnico", "bioquimico", "recepcionista"]), buscarOrdenesRuta);
-app.use("/", OrdenesTrabajoRuta);
-
-app.use("/examen", checkRole(["tecnico", "bioquimico"]), examenRuta);
-app.use("/orden", checkRole(["tecnico", "bioquimico", "recepcionista"]), OrdenesTrabajoRuta);
-app.use(
-  "/determinacion",
-  checkRole(["tecnico", "bioquimico"]),
-  determinacionesRuta
-);
-app.use(
-  "/valoresreferencia",
-  checkRole(["tecnico", "bioquimico"]),
-  valoresRefRuta
-);
-app.use(
-  "/modificar-examen",
-  checkRole(["tecnico", "bioquimico"]),
-  modificarExamenRuta
-);
-
-app.use(
-  "/buscar-valores",
-  checkRole(["tecnico", "bioquimico"]),
-  modificarValrefRuta
-);
-app.use(
-  "/buscar-valores",
-  checkRole(["tecnico", "bioquimico"]),
-  modificarDeterminacionRuta
-);
-app.use("/muestras", checkRole(["tecnico", "bioquimico", "recepcionista"]), muestrasRouter);
+app.use("/buscarOrdenes", checkRole(todosLosRoles), buscarOrdenesRuta);
+app.use("/orden", checkRole(todosLosRoles), ordenes_trabajoRuta);
+app.use("/muestras", checkRole(todosLosRoles), resultadosRuta);
+app.use("/examen", checkRole(rolesTecnicos), examenRuta);
+app.use("/determinacion", checkRole(rolesTecnicos), determinacionesRuta);
+app.use("/valoresreferencia", checkRole(rolesTecnicos), valoresRefRuta);
+app.use("/modificar-examen", checkRole(rolesTecnicos), modificarExamenRuta);
+app.use("/", pacienteRuta);
+app.use("/", usuarioRuta);
 
 
-// Ruta de inicio de sesión
-app.get('/login', (req, res) => {
-  if (req.isAuthenticated()) {
-    // Si ya está autenticado, redirige a la ruta correspondiente según su rol
-    return res.redirect('/redirigirUsuario');
-  } else {
-    // Si no está autenticado, muestra la vista de login
-    res.render('login');
-  }
-});
-
-// Ruta principal
-app.get('/', (req, res) => {
-  if (!req.isAuthenticated()) {
-    // Si no está autenticado, redirige a la página de login
-    return res.redirect('/login');
-  }
-  // Si está autenticado, redirige a su vista correspondiente
-  return res.redirect('/redirigirUsuario');
-});
-
-// Ruta POST para el inicio de sesión con Passport.js
-app.post('/login', (req, res, next) => {
-  passport.authenticate('local', { session: true }, (err, user, info) => {
-    if (err) {
-      return next(err);
-    }
-    if (!user) {
-      const errorMessage = 'Email o contraseña incorrectos. Intente nuevamente.';
-      return res.render('login', { message: errorMessage });
-    }
-    req.logIn(user, (err) => {
-      if (err) {
-        return next(err);
-      }
-      const token = jwt.sign(
-        { id: user.id_Usuario, rol: user.rol },
-        'messicrack'
-      );
-      switch (user.rol) {
-        case 'recepcionista':
-          return res.redirect('/recepcionista');
-        case 'tecnico':
-          return res.redirect('/tecnico');
-        case 'bioquimico':
-          return res.redirect('/bioquimico');
-        case 'admin':
-          return res.redirect('/admin');
-        case 'paciente':
-          return res.redirect('/portal-paciente')
-        default:
-          return res.status(403).send('Acceso no autorizado');
-      }
-    });
-  })(req, res, next);
-});
-
-// Ruta GET para redirigir al usuario según su rol después del inicio de sesión
-app.get('/redirigirUsuario', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.redirect('/login'); // Redirigir a la página de inicio de sesión si no está autenticado
-  }
-
-  switch (req.user.rol) {
-    case 'recepcionista':
-      return res.redirect('/recepcionista');
-    case 'tecnico':
-      return res.redirect('/tecnico');
-    case 'bioquimico':
-      return res.redirect('/bioquimico');
-    case 'admin':
-      return res.redirect('/admin');
-    case 'paciente':
-      return res.redirect('/portal-paciente')
-    default:
-      return res.status(403).send('Acceso no autorizado');
-  }
-});
-
-
-// Ruta GET para la vista de recepcionista
-app.get("/recepcionista", (req, res) => {
-  if (
-    req.isAuthenticated() &&
-    (req.user.rol === "recepcionista" ||
-      req.user.rol === "tecnico" ||
-      req.user.rol === "bioquimico" ||
-      req.user.rol === "admin")
-  ) {
-    res.render("recepcionista", { nombreUsuario: req.user.nombre_usuario });
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-// Ruta GET para la vista de técnico
-app.get("/tecnico", (req, res) => {
-  if (
-    req.isAuthenticated() &&
-    (req.user.rol === "tecnico" ||
-      req.user.rol === "bioquimico" ||
-      req.user.rol === "admin")
-  ) {
-    res.render("tecnico", { nombreUsuario: req.user.nombre_usuario });
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-// Ruta GET para la vista de bioquímico
-app.get("/bioquimico", (req, res) => {
-  if (
-    req.isAuthenticated() &&
-    (req.user.rol === "bioquimico" || req.user.rol === "admin")
-  ) {
-    res.render("bioquimico", { nombreUsuario: req.user.nombre_usuario });
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-// Ruta GET para la vista de administrador
-app.get("/admin", (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    res.render("admin", { nombreUsuario: req.user.nombre_usuario });
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-
-// Ruta GET para la vista de creación de usuario para administrador
-app.get("/admin/crear-usuario", (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    res.render("crear-usuario");
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-// Ruta GET para la vista de auditoria
-app.get("/admin/auditoria", async (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    const { descripcion, usuario, fecha, page = 1 } = req.query;
-    const limit = 15;
-    const offset = (page - 1) * limit;
-
-    try {
-      const filtros = { descripcion, usuario, fecha, limit, offset };
-      const { auditorias, totalPages } = await auditoriaController.listarAuditorias(filtros);
-
-      if (req.xhr || req.headers.accept.includes('json')) {
-        return res.json({ auditorias, totalPages });
-      }
-
-      res.render("auditoria", {
-        auditorias,
-        totalPages,
-        currentPage: parseInt(page),
-        descripcion,
-        usuario,
-        fecha,
-      });
-    } catch (error) {
-      console.error("Error al obtener auditorías:", error);
-      res.status(500).send("Error al obtener auditorías");
-    }
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-
-// Ruta GET para la vista de actualización de usuario para administrador
-app.get("/admin/actualizarUsuarioAdm", async (req, res) => {
-
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    const { nombre } = req.query;
-
-    try {
-      if (nombre) {
-        // Si el parámetro `nombre` está presente, realiza la búsqueda
-        const usuarios = await User.findAll({
-          where: {
-            [Op.or]: [
-              { nombre_usuario: { [Op.like]: `%${nombre}%` } },
-              { correo_electronico: { [Op.like]: `%${nombre}%` } },
-            ],
-          },
-          attributes: ["id_Usuario", "nombre_usuario", "correo_electronico", "rol", "urlFoto", "password"], // Incluye la URL de la foto
-        });
-
-        return res.json({ usuarios }); // Devuelve los resultados como JSON
-      }
-
-      // Si no hay parámetro `nombre`, renderiza la vista
-      res.render("actualizarUsuarioAdm");
-    } catch (error) {
-      console.error("Error al manejar la solicitud:", error);
-
-      // Devuelve un error JSON si se estaba buscando o renderiza un error si es la vista
-      if (nombre) {
-        return res.status(500).json({ error: "Error en la búsqueda" });
-      }
-      res.status(500).send("Error al renderizar la página");
-    }
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-
-// Ruta POST para actualizar un usuario por administrador
-app.post("/admin/actualizar-usuario", upload.single("foto"), async (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    const { nombre } = req.query;
-
-    try {
-      const { idUsuario, nombre, correo_electronico, password, rol } = req.body;
-      const foto = req.file;
-
-      // Verifica que el ID del usuario esté presente
-      if (!idUsuario) {
-        return res.render("actualizarUsuarioAdm", {
-          mensajeError: "No se pudo actualizar el usuario. ID no proporcionado.",
-        });
-      }
-
-      // Busca el usuario por ID
-      const usuarioExistente = await User.findByPk(idUsuario);
-      if (!usuarioExistente) {
-        return res.render("actualizarUsuarioAdm", { mensajeError: "Usuario no encontrado." });
-      }
-
-      // Actualiza los datos del usuario
-      usuarioExistente.nombre_usuario = nombre;
-      usuarioExistente.correo_electronico = correo_electronico;
-      if (password) usuarioExistente.password = bcrypt.hashSync(password, 10);
-      usuarioExistente.rol = rol;
-
-      // Maneja la foto
-      if (foto) {
-        usuarioExistente.urlFoto = `/public/uploads/${foto.filename}`;
-      }
-
-      await usuarioExistente.save();
-
-      res.render("actualizarUsuarioAdm", {
-        mensajeExito: `Usuario ${nombre} actualizado exitosamente.`,
-      });
-    } catch (error) {
-      console.error("Error al actualizar usuario:", error);
-      res.render("actualizarUsuarioAdm", {
-        mensajeError: "Ocurrió un error al actualizar el usuario.",
-      });
-    }
-  }
-});
-
-
-// Ruta DELETE para eliminar un usuario por administrador
-app.delete("/admin/eliminarUsuarioAdm/:id", async (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    const { nombre } = req.query;
-
-    const idUsuario = req.params.id;
-
-    try {
-      const usuario = await User.findByPk(idUsuario);
-
-      if (!usuario) {
-        return res.status(404).json({ mensaje: "Usuario no encontrado" });
-      }
-
-      await usuario.destroy();
-      res.status(200).json({ mensaje: "Usuario eliminado exitosamente" });
-    } catch (error) {
-      console.error("Error en el servidor: ", error);
-      res.status(500).json({ error: "Error en el servidor" });
-    }
-  }
-});
-
-// Ruta POST para crear un usuario por administrador (modificada)
-app.post("/admin/crear-usuario", upload.single("foto"), async (req, res) => {
-  if (req.isAuthenticated() && req.user.rol === "admin") {
-    const { nombre, correo_electronico, password, rol } = req.body;
-    const foto = req.file;
-    const urlFoto = foto ? `/public/uploads/${foto.filename}` : null;
-
-    try {
-      const existingUser = await User.findOne({
-        where: { correo_electronico },
-      });
-
-      if (existingUser) {
-        return res.render("crear-usuario", {
-          mensaje: null,
-          error: "El correo electrónico ya está en uso. Ingrese otro.",
-        });
-      }
-
-      const hashedPassword = bcrypt.hashSync(password, 10);
-
-      // 👇 Crea el usuario en la base de datos
-      const nuevoUsuario = await User.create({
-        nombre_usuario: nombre,
-        correo_electronico,
-        password: hashedPassword,
-        rol,
-        urlFoto,
-      });
-
-      // 👇 Envía el email con las credenciales (agregar esto)
-      try {
-        const mailOptions = {
-          from: process.env.FROM_EMAIL,
-          to: correo_electronico,
-          subject: "Credenciales de acceso - Laboratorio",
-          text: `Bienvenido ${nombre}!\n\nTus credenciales de acceso:\nUsuario: ${correo_electronico}\nContraseña: ${password}\n\nAccede en: http://localhost:3000/login`,
-          html: `<p>Bienvenido ${nombre}!</p>
-                 <p>Tus credenciales de acceso:</p>
-                 <ul>
-                   <li>Usuario: ${correo_electronico}</li>
-                   <li>Contraseña: ${password}</li>
-                 </ul>
-                 <p>Accede en: <a href="http://localhost:3000/login">http://localhost:3000/login</a></p>`
-        };
-
-        await transporter.sendMail(mailOptions);
-      } catch (emailError) {
-        console.error("Error al enviar el email:", emailError);
-        // No detenemos el proceso, solo registramos el error
-      }
-
-      res.render("crear-usuario", {
-        mensaje: "Usuario creado exitosamente",
-        error: null,
-      });
-
-    } catch (error) {
-      console.error("Error al crear el usuario:", error);
-      res.status(500).send("Error al crear el usuario");
-    }
-  } else {
-    res.status(403).send("Acceso no autorizado");
-  }
-});
-
-// Ruta GET para la vista de muestras
-app.get("/muestras", async (req, res) => {
-
-  try {
-    // Renderiza la vista 'muestras.pug'
-    res.render("muestras");
-  } catch (error) {
-    console.error("Error al renderizar la vista de muestras:", error);
-    res.status(500).send("Error interno del servidor");
-  }
-});
-
-// Ruta GET para cerrar sesión
-app.get("/logout", (req, res) => {
-  req.logout(function (err) {
-    if (err) {
-      console.error("Error al cerrar sesión:", err);
-      return res.status(500).send("Error al cerrar sesión");
-    }
-    res.redirect("/"); // Redirige al usuario a la página de inicio o a otra página deseada
-  });
-});
-
-// Ruta GET para cargar la vista de cambio de contraseña
-app.get("/cambiarContrasena", (req, res) => {
-  res.render("cambiarContrasena", {
-    mensajeContrasenaIncorrecta: false,
-    mensajeContrasenasNoCoinciden: false,
-  });
-});
-
-// Ruta POST para procesar el cambio de contraseña
-app.post("/cambiar-contrasena", (req, res) => {
-  const usuario = req.user; // Obtén el usuario autenticado
-
-  const contrasenaActual = req.body.contrasena_actual;
-  const nuevaContrasena = req.body.nueva_contrasena;
-  const confirmarContrasena = req.body.confirmar_contrasena;
-
-  // Verificar si la contraseña actual ingresada coincide con la del usuario
-  if (!bcrypt.compareSync(contrasenaActual, usuario.password)) {
-    return res.render("cambiarContrasena", {
-      mensajeContrasenaIncorrecta: true,
-      mensajeContrasenasNoCoinciden: false,
-    });
-  }
-
-  // Verificar si las contraseñas nuevas coinciden
-  if (nuevaContrasena !== confirmarContrasena) {
-    // Las contraseñas nuevas no coinciden, muestra un mensaje de error
-
-    return res.render("cambiarContrasena", {
-      mensajeContrasenaIncorrecta: false,
-      mensajeContrasenasNoCoinciden: true,
-    });
-  }
-
-  // Cifrar la nueva contraseña y actualizarla en la base de datos
-  const hashedPassword = bcrypt.hashSync(nuevaContrasena, 10);
-  usuario.password = hashedPassword;
-  usuario.save();
-
-  // Redirige al usuario a la página de inicio o a donde desees y muestra el mensaje de contraseña cambiada
-  res.render("cambiarContrasena", {
-    message: "Contraseña cambiada exitosamente.",
-    contrasenaCambiada: true,
-  });
-});
-// Sincronización de modelos con la base de datos y arranque del servidor en el puerto 3000
-sequelize
-  .sync()
-  .then(() => {
-    app.listen(3000, () => {
-    });
+app.post('/login',
+  passport.authenticate('local', {
+    successRedirect: '/post-login-setup',
+    failureRedirect: '/login',
+    failureFlash: 'Email o contraseña incorrecto/s.'
   })
-  .catch((error) => {
-  });
+);
 
+app.get('/post-login-setup', (req, res) => {
+  const usuarioConRoles = req.user;
+  
+  req.session.usuario = {
+    id: usuarioConRoles.id_Usuario,
+    nombre: usuarioConRoles.nombre_usuario,
+    esEmpleado: !!usuarioConRoles.empleado,
+    esPaciente: !!usuarioConRoles.paciente,
+    rolEmpleado: usuarioConRoles.empleado ? usuarioConRoles.empleado.rol : null,
+    idPaciente: usuarioConRoles.paciente ? usuarioConRoles.paciente.id_paciente : null
+  };
+
+  req.session.save(() => {
+    res.redirect('/redirigirUsuario');
+  });
+});
+
+app.get('/redirigirUsuario', (req, res) => {
+  if (!req.isAuthenticated() || !req.session.usuario) return res.redirect('/login');
+
+  const { esEmpleado, esPaciente, rolEmpleado } = req.session.usuario;
+
+  if (esEmpleado && esPaciente) {
+    return res.render('seleccionarRol', { pageTitle: 'Seleccionar Rol', usuario: req.session.usuario });
+  } else if (esEmpleado) {
+    return res.redirect(`/${rolEmpleado}`);
+  } else if (esPaciente) {
+    return res.redirect('/portal-paciente');
+  } else {
+    req.flash('error', 'No tienes un rol asignado en el sistema.');
+    res.redirect('/login');
+  }
+});
+
+app.get('/login', (req, res) => {
+  if (req.isAuthenticated()) return res.redirect('/');
+  res.render('login', { pageTitle: 'Iniciar Sesión' });
+});
+
+app.get('/', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/login');
+  res.redirect('/redirigirUsuario');
+});
+
+app.get("/bioquimico", checkRole(['bioquimico', 'admin']), (req, res) => { res.render("bioquimico", { pageTitle: 'Panel del Bioquímico' }); });
+app.get("/tecnico", checkRole(['tecnico', 'bioquimico', 'admin']), (req, res) => { res.render("tecnico", { pageTitle: 'Panel del Técnico' }); });
+app.get("/recepcionista", checkRole(['recepcionista', 'admin']), (req, res) => { res.render("recepcionista", { pageTitle: 'Panel de Recepción' }); });
+
+app.get("/logout", (req, res, next) => {
+  req.logout((err) => {
+    if (err) return next(err);
+    req.session.destroy(() => {
+      res.redirect("/login");
+    });
+  });
+});
+
+sequelize.sync().then(() => {
+  app.listen(3000, () => {
+    console.log("Servidor iniciado en http://localhost:3000");
+  });
+}).catch((error) => {
+  console.error("Error al sincronizar la base de datos:", error);
+});

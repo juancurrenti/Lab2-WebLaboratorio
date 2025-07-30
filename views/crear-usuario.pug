@@ -3,39 +3,59 @@ extends layout
 block content
   head
     title Crear Usuario
-  body
-    .container
-      h1 Crear Usuario
+  
+  .container
+    h1 Crear Usuario
 
-      form#crear-usuario-form(action="/admin/crear-usuario" method="POST" enctype="multipart/form-data")
-        .form-group
-          label(for="nombre") Nombre:
-          input#nombre.form-control(type="text" name="nombre" required)
+    form#crear-usuario-form(action="/admin/crear-usuario" method="POST")
+      .form-group
+        label(for="nombre") Nombre y Apellido:
+        input#nombre.form-control(type="text" name="nombre" required)
 
-        .form-group
-          label(for="correo_electronico") Correo Electrónico:
-          input#correo_electronico.form-control(type="email" name="correo_electronico" required)
+      .form-group
+        label(for="correo_electronico") Correo Electrónico:
+        input#correo_electronico.form-control(type="email" name="correo_electronico" required)
 
-        .form-group
-          label(for="password") Contraseña:
-          input#password.form-control(type="password" name="password" required)
+      .form-group
+        label(for="password") Contraseña:
+        input#password.form-control(type="password" name="password" required)
 
-        .form-group
-          label(for="rol") Rol:
-          select#rol.form-control(name="rol" required)
-            option(value="recepcionista") Recepcionista
-            option(value="tecnico") Técnico
-            option(value="bioquimico") Bioquímico
-            option(value="admin") Administrador
-            option(value="paciente") Paciente
+      .form-group
+        label(for="rol") Rol:
+        select#rol.form-control(name="rol" required)
+          option(value="recepcionista") Recepcionista
+          option(value="tecnico") Técnico
+          option(value="bioquimico") Bioquímico
+          option(value="admin") Administrador
 
-        .form-group
-          label(for="foto") Foto de Perfil:
-          input#foto.form-control(type="file" name="foto" accept="image/*")
+      .form-group.mt-4
+        button.btn.btn-primary(type="button" data-bs-toggle="modal" data-bs-target="#confirmCreateModal") Crear Usuario
+        a.btn.btn-secondary.ms-2(href="javascript:history.back()") Volver
 
-        button.btn.btn-primary(type="submit" onclick="return confirm('¿Estás seguro de crear el usuario?')") Crear Usuario
+    if mensaje
+      p(style="color: green; margin-top: 20px;") #{mensaje}
+    if error
+      p(style="color: red; margin-top: 20px;") #{error}
 
-      if mensaje
-        p(style="color: green; margin-top: 20px;") #{mensaje}
-      if error
-        p(style="color: red; margin-top: 20px;") #{error}
+  .modal.fade#confirmCreateModal(tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true")
+    .modal-dialog
+      .modal-content
+        .modal-header
+          h5.modal-title#modalLabel ¿Confirmar Creación?
+          button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+        .modal-body
+          p ¿Estás seguro de que deseas crear este usuario?
+        .modal-footer
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-primary#confirmSubmitBtn(type="button") Confirmar Creación
+
+  script.
+    document.addEventListener('DOMContentLoaded', function() {
+      const confirmSubmitBtn = document.querySelector('#confirmSubmitBtn');
+      const form = document.querySelector('#crear-usuario-form');
+      if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener('click', function() {
+          form.submit();
+        });
+      }
+    });

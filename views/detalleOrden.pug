@@ -30,8 +30,6 @@ block content
           .patient-info
             p Nombre: #{ordenes[0].nombre} #{ordenes[0].apellido}
             p DNI: #{ordenes[0].dni}
-            p Email: #{ordenes[0].email}
-            p Teléfono: #{ordenes[0].telefono}
             p Dirección: #{ordenes[0].direccion}
             p Fecha de Nacimiento: #{ordenes[0].fecha_nacimiento}
             p Edad: #{ordenes[0].edad} Años
@@ -101,16 +99,16 @@ block content
       const pacienteNombre = pacienteNombreElement ? pacienteNombreElement.textContent.split(' ')[1] : 'Paciente';
 
       const opt = {
-        margin: [5, 5, 5, 5], // Márgenes reducidos para ajuste máximo
-        filename: `reporte_${pacienteNombre}.pdf`, // Nombre del archivo con el nombre del paciente
+        margin: [5, 5, 5, 5],
+        filename: `reporte_${pacienteNombre}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 1, useCORS: true }, // Aumentar la escala para mejor calidad
+        html2canvas: { scale: 1, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
       html2pdf().set(opt).from(element).toPdf().get('pdf').then(function(pdf) {
         pdf.autoPrint();
-        window.open(pdf.output('bloburl'), '_blank'); // Abrir en una nueva pestaña
+        window.open(pdf.output('bloburl'), '_blank');
       }).catch(function(error) {
         error('Error generando el PDF:', error);
       });

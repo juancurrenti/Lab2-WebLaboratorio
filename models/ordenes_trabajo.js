@@ -1,45 +1,30 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
-const Muestra = require("../models/muestra");
-const Paciente = require('../models/paciente');
-const Resultado = require('../models/resultados');
-const OrdenesExamenes = require("../models/ordenes_examen");
-const OrdenesTrabajo = sequelize.define(
-  "OrdenesTrabajo",
-  {
+
+module.exports = (sequelize) => {
+  const OrdenTrabajo = sequelize.define('OrdenTrabajo', {
     id_Orden: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    id_Paciente: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    dni: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    Fecha_Creacion: {
-      type: DataTypes.DATE,
-    },
-    Fecha_Entrega: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
-    estado: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: "Ingresada"
-    },
-  },
-  {
-    tableName: "ordenes_trabajo",
-    timestamps: false,
-  }
-);
-OrdenesTrabajo.hasMany(Muestra, { foreignKey: "id_Orden" });
-OrdenesTrabajo.hasMany(OrdenesExamenes, { foreignKey: "id_Orden" });
-OrdenesTrabajo.belongsTo(Paciente, { foreignKey: "id_Paciente", as: 'paciente' });
-OrdenesTrabajo.hasMany(Resultado, { foreignKey: 'id_orden' });
-module.exports = OrdenesTrabajo;
+    id_Paciente: { type: DataTypes.INTEGER, allowNull: false },
+    dni: { type: DataTypes.STRING, allowNull: false },
+    Fecha_Creacion: { type: DataTypes.DATE },
+    Fecha_Entrega: { type: DataTypes.DATE },
+    estado: { type: DataTypes.STRING },
+    descripcionCancelacion: { type: DataTypes.STRING, allowNull: true },
+    diagnostico: { type: DataTypes.STRING, allowNull: true }
+  }, {
+    tableName: 'ordenes_trabajo',
+    timestamps: false
+  });
+
+  OrdenTrabajo.associate = function(models) {
+    OrdenTrabajo.belongsTo(models.Paciente, { foreignKey: 'id_Paciente', as: 'paciente' });
+    OrdenTrabajo.hasMany(models.Muestra, { foreignKey: 'id_Orden', as: 'Muestras' });
+    OrdenTrabajo.hasMany(models.Resultado, { foreignKey: 'id_Orden', as: 'Resultados' });
+    OrdenTrabajo.hasMany(models.OrdenesExamen, { foreignKey: 'id_Orden', as: 'OrdenesExamenes' });
+  };
+
+  return OrdenTrabajo;
+};

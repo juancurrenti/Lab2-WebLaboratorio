@@ -1,43 +1,72 @@
 extends layout
 
 block content
-  title Ordenes informadas
-  
-  //- AQUÍ SE CAMBIÓ .container POR .container-fluid
-  .container-fluid
-    h1.text-center.mt-4 Órdenes Informadas
+    title Ordenes informadas
+    
+    .container-fluid
+        h1.text-center.mt-4 Órdenes Informadas
 
-    if ordenes && ordenes.length > 0
-      table.table.table-striped.mt-4
-        thead
-          tr
-            th #ID Orden
-            th Fecha Creación
-            th Fecha Entrega
-            th Nombre del Paciente
-            th Apellido del Paciente
-            th DNI
-            th Acciones
-        tbody
-          each orden in ordenes
-            tr
-              td= orden.OrdenID
-              td= orden.FechaCreacion || "No disponible"
-              td= orden.FechaEntrega || "No disponible"
-              td= orden.NombrePaciente
-              td= orden.ApellidoPaciente
-              td= orden.DNIPaciente
-              td
-                //- AQUÍ SE AGRUPARON LOS BOTONES EN UN MENÚ DESPLEGABLE
-                .btn-group
-                  button.btn.btn-secondary.btn-sm.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
-                    | Acciones
-                  ul.dropdown-menu
-                    li
-                      a.dropdown-item(href=`/registrarResultados/${orden.OrdenID}`) Modificar
-                    li
-                      a.dropdown-item(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
-    else
-      .row
-        .col-lg-12.text-center
-          p.text-muted No hay órdenes con estado "Informada" disponibles.
+        .form-group.my-3
+            input#searchInput.form-control(type="text" placeholder="Buscar por Nombre, Apellido o DNI...")
+
+        if ordenes && ordenes.length > 0
+            table.table.table-striped.mt-4
+                thead
+                    tr
+                        th #ID Orden
+                        th Fecha Creación
+                        th Fecha Entrega
+                        th Nombre del Paciente
+                        th Apellido del Paciente
+                        th DNI
+                        th Acciones
+
+                tbody#ordersTableBody
+                    each orden in ordenes
+                        tr
+                            td= orden.OrdenID
+                            td= orden.FechaCreacion || "No disponible"
+                            td= orden.FechaEntrega || "No disponible"
+                            td= orden.NombrePaciente
+                            td= orden.ApellidoPaciente
+                            td= orden.DNIPaciente
+                            td
+                                .btn-group
+                                    button.btn.btn-secondary.btn-sm.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
+                                        | Acciones
+                                    ul.dropdown-menu
+                                        li
+                                            a.dropdown-item(href=`/orden/registrarResultados/${orden.OrdenID}`) Modificar
+                                        li
+                                            a.dropdown-item(href=`/generarPDF/${orden.OrdenID}` target="_blank") Imprimir
+        else
+            .row
+                .col-lg-12.text-center
+                    p.text-muted No hay órdenes con estado "Informada" disponibles.
+        a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver
+
+
+    script.
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            const tableBody = document.getElementById('ordersTableBody');
+
+            const rows = tableBody.getElementsByTagName('tr');
+
+            searchInput.addEventListener('keyup', () => {
+                const filter = searchInput.value.toLowerCase().trim();
+
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const rowText = row.textContent || row.innerText;
+
+
+                    if (rowText.toLowerCase().includes(filter)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        });

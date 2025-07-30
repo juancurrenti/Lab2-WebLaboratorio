@@ -1,55 +1,61 @@
-// config/auth.js
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
-const User = require('../models/User');
+const { Usuario, Empleado, Paciente } = require('../models');
 
-// Configuración de Passport.js
 passport.use(new LocalStrategy(
-    {
-        usernameField: 'correo_electronico',
-        passwordField: 'password',
-    },
-    async (username, password, done) => {
-        try {
-            if (!username || !password) {
-                return done(null, false, { message: 'Credenciales incorrectas' });
-            }
+  {
+    usernameField: 'correo_electronico',
+    passwordField: 'password',
+  },
+  async (email, password, done) => {
+    try {
+      console.log(`[DEBUG] 1. Buscando usuario con email: ${email}`);
+      console.log(`[DEBUG] 1.5. Contraseña recibida: "${password}"`);
+      const user = await Usuario.findOne({ where: { correo_electronico: email } });
 
-            const user = await User.findOne({ where: { correo_electronico: username } });
+      
 
-            if (!user) {
-                return done(null, false, { message: 'Credenciales incorrectas' });
-            }
+      
 
-            const passwordMatch = await bcrypt.compare(password, user.password);
-            if (!passwordMatch) {
-                return done(null, false, { message: 'Credenciales incorrectas' });
-            }
+      if (!user) {
+        console.log('[DEBUG] 2. Resultado: Usuario NO encontrado.');
+        return done(null, false, { message: 'Credenciales incorrectas' });
+      }
+      
+      console.log(`[DEBUG] 2. Resultado: Usuario encontrado -> ${user.nombre_usuario}`);
 
-            return done(null, user);
-        } catch (error) {
-            error('Error de autenticación:', error);
-            return done(error);
-        }
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      console.log('[DEBUG] 3. ¿La contraseña coincide?:', passwordMatch);
+      
+      if (!passwordMatch) {
+        console.log('[DEBUG] 4. Resultado: La contraseña NO coincide.');
+        return done(null, false, { message: 'Credenciales incorrectas' });
+      }
+
+      console.log('[DEBUG] 4. Resultado: Autenticación exitosa.');
+      return done(null, user);
+    } catch (error) {
+      console.error('Error grave en la estrategia de Passport:', error);
+      return done(error);
     }
+  }
 ));
 
 passport.serializeUser((user, done) => {
-    done(null, user.id_Usuario); 
+  done(null, user.id_Usuario); 
 });
 
 passport.deserializeUser(async (id_Usuario, done) => {
-    try {
-        const user = await User.findByPk(id_Usuario);
-        if (!user) {
-            done(null, false); 
-        } else {
-            done(null, user);
-        }
-    } catch (error) {
-        done(error);
-    }
+  try {
+    const user = await Usuario.findByPk(id_Usuario, {
+      include: [
+        { model: Empleado, as: 'empleado' },
+        { model: Paciente, as: 'paciente' }
+      ]
+    });
+    done(null, user);
+  } catch (error) {
+    done(error);
+  }
 });
-
-module.exports = passport;

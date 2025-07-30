@@ -1,114 +1,147 @@
 extends layout
 
 block content
-  //- Se eliminaron las etiquetas <head> y <body> que estaban aquí incorrectamente.
+    .container-fluid
+        h1 Buscar Orden de Trabajo
 
-  //- AQUÍ SE CAMBIÓ .container POR .container-fluid PARA EXPANDIR EL ANCHO
-  .container-fluid
-    h1 Buscar Orden de Trabajo
+        // Campo de búsqueda dinámica
+        .form-group
+            label(for="searchPaciente") Buscar paciente (DNI, Nombre, Apellido):
+            input#searchPaciente.form-control(type="text" placeholder="Escribe para buscar pacientes")
 
-    // Campo de búsqueda dinámica
-    .form-group
-      label(for="searchPaciente") Buscar paciente (DNI, Nombre, Apellido, Email):
-      input#searchPaciente(type="text" class="form-control" placeholder="Escribe para buscar pacientes")
+        // Menú desplegable dinámico
+        ul#dropdown-menu.dropdown-menu(style="display: none; position: relative;")
 
-    // Menú desplegable dinámico
-    ul#dropdown-menu(class="dropdown-menu" style="display: none; position: relative;")
+        // Contenedor de resultados de órdenes
+        h2(style="margin-top: 20px;") Órdenes de Trabajo
+        div#ordenesResultados(style="margin-top: 20px;")
+        
+        // Contenedor para los botones de paginación
+        div#paginacion-container.d-flex.justify-content-center.mt-4
 
-    // Botón para buscar órdenes del paciente seleccionado
-    button#buscarOrdenesBtn(type="button" class="btn btn-primary" disabled style="margin-top: 10px;") Buscar órdenes para paciente seleccionado
+        // Mensaje de error o información
+        p#mensaje(style="color: #ff4040; margin-top: 10px;")
+        a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver
 
-    // Contenedor de resultados de órdenes
-    h2(style="margin-top: 20px;") Órdenes de Trabajo
-    div#ordenesResultados(style="margin-top: 20px;")
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
 
-    // Mensaje de error o información
-    p#mensaje(style="color: #ff4040; margin-top: 10px;")
+    script.
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchPacienteInput = document.getElementById('searchPaciente');
+            const dropdownMenu = document.getElementById('dropdown-menu');
+            const ordenesResultados = document.getElementById('ordenesResultados');
+            const paginacionContainer = document.getElementById('paginacion-container');
+            const mensaje = document.getElementById('mensaje');
+            let selectedPaciente = null;
 
-  // Scripts
-  script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
+            const buscarPacientes = async (query) => {
+                try {
+                    if (!query) {
+                        dropdownMenu.style.display = 'none';
+                        return;
+                    }
+                    const response = await axios.get('/buscar-paciente-dinamico', { params: { query } });
+                    const pacientes = response.data;
 
-  // Script para manejo de búsqueda dinámica y visualización de órdenes
-  script.
-    document.addEventListener('DOMContentLoaded', function () {
-      const searchPacienteInput = document.getElementById('searchPaciente');
-      const dropdownMenu = document.getElementById('dropdown-menu');
-      const buscarOrdenesBtn = document.getElementById('buscarOrdenesBtn');
-      const ordenesResultados = document.getElementById('ordenesResultados');
-      const mensaje = document.getElementById('mensaje');
-      let selectedPaciente = null;
+                    dropdownMenu.innerHTML = ''; 
+                    if (pacientes.length > 0) {
+                        dropdownMenu.style.display = 'block';
+                        pacientes.forEach((paciente) => {
+                            const li = document.createElement('li');
+                            li.className = 'dropdown-item';
+                            li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni}`;
+                            li.style.cursor = 'pointer';
+                            li.addEventListener('click', () => seleccionarPaciente(paciente));
+                            dropdownMenu.appendChild(li);
+                        });
+                    } else {
+                        dropdownMenu.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error al buscar pacientes:', error);
+                }
+            };
+            
+            const seleccionarPaciente = (paciente) => {
+                selectedPaciente = paciente;
+                dropdownMenu.style.display = 'none';
+                searchPacienteInput.value = `${paciente.nombre} ${paciente.apellido} (DNI: ${paciente.dni})`; 
+                buscarOrdenes(paciente.id_paciente); 
+            };
 
-      const buscarPacientes = async (query) => {
-        try {
-          if (!query) {
-            dropdownMenu.style.display = 'none';
-            return;
-          }
-          const response = await axios.get('/buscarOrdenes/buscar-paciente-dinamico', { params: { query } });
-          const pacientes = response.data;
+            const buscarOrdenes = async (idPaciente, page = 1) => {
+                if (!idPaciente) return;
+                try {
+                    const response = await axios.post('/buscarOrdenes/buscar-ordenes', { idPaciente: idPaciente, page: page });
+                    const { ordenes, totalPages } = response.data;
+                    
+                    mensaje.textContent = '';
+                    ordenesResultados.innerHTML = '';
+                    
+                    if (ordenes.length > 0) {
+                        ordenes.forEach((orden) => {
+                            const ordenDiv = document.createElement('div');
+                            ordenDiv.classList.add('card', 'mb-3');
+                            ordenDiv.innerHTML = `
+                                <div class="card-header">
+                                    Orden #${orden.id_Orden} - <strong>Diagnóstico:</strong> ${orden.diagnostico || 'No especificado'}
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title">Estado: ${orden.estado}</h5>
+                                    <p class="card-text">Fecha de Creación: ${new Date(orden.Fecha_Creacion).toLocaleDateString()}</p>
+                                    <p class="card-text">Fecha de Entrega: ${new Date(orden.Fecha_Entrega).toLocaleDateString()}</p>
+                                    <a href="/buscarOrdenes/crear-modificar-orden/${orden.id_Orden}" class="btn btn-secondary">Modificar Orden</a>
+                                    <a href="/orden/muestras/ver/${orden.id_Orden}" class="btn ms-2" style="background-color: #25254eff; border-color: #25254eff; color: white;">Ver Muestras</a>
+                                </div>
+                            `;
+                            ordenesResultados.appendChild(ordenDiv);
+                        });
+                        
+                        renderPaginacion(totalPages, page);
 
-          dropdownMenu.innerHTML = ''; 
-          if (pacientes.length > 0) {
-            dropdownMenu.style.display = 'block';
-            pacientes.forEach((paciente) => {
-              const li = document.createElement('li');
-              li.className = 'dropdown-item';
-              li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni} - Email: ${paciente.email}`;
-              li.dataset.pacienteId = paciente.id_Paciente;
-              li.addEventListener('click', () => seleccionarPaciente(paciente));
-              dropdownMenu.appendChild(li);
-            });
-          } else {
-            dropdownMenu.style.display = 'none';
-          }
-        } catch (error) {
-          console.error('Error al buscar pacientes:', error);
-        }
-      };
-      
-      const seleccionarPaciente = (paciente) => {
-        selectedPaciente = paciente;
-        buscarOrdenesBtn.disabled = false;
-        dropdownMenu.style.display = 'none';
-        searchPacienteInput.value = `${paciente.nombre} ${paciente.apellido} DNI:  ${paciente.dni} `; 
-      };
+                    } else {
+                        ordenesResultados.innerHTML = `<p>No se encontraron órdenes para el paciente seleccionado.</p>`;
+                        paginacionContainer.innerHTML = '';
+                    }
+                } catch (error) {
+                    console.error('Error al buscar órdenes:', error);
+                    mensaje.textContent = 'Error al buscar órdenes.';
+                }
+            };
 
-      const buscarOrdenes = async () => {
-        if (!selectedPaciente) return;
+            const renderPaginacion = (totalPages, currentPage) => {
+                paginacionContainer.innerHTML = '';
+                if (totalPages <= 1) return;
 
-        try {
-          const response = await axios.post('/buscarOrdenes/buscar-ordenes', { idPaciente: selectedPaciente.id_Paciente });
-          const ordenes = response.data;
+                const nav = document.createElement('nav');
+                const ul = document.createElement('ul');
+                ul.className = 'pagination';
 
-          ordenesResultados.innerHTML = '';
-          if (ordenes.length > 0 && !ordenes.message) {
-            ordenes.forEach((orden) => {
-              const ordenDiv = document.createElement('div');
-              ordenDiv.classList.add('card', 'mb-3');
-              ordenDiv.innerHTML = `
-                <div class="card">
-                  <div class="card-header">
-                    Orden #${orden.id_Orden}
-                  </div>
-                  <div class="card-body">
-                    <h5 class="card-title">Estado: ${orden.estado}</h5>
-                    <p class="card-text">Fecha de Creación: ${new Date(orden.Fecha_Creacion).toLocaleDateString()}</p>
-                    <p class="card-text">Fecha de Entrega: ${new Date(orden.Fecha_Entrega).toLocaleDateString()}</p>
-                    <a href="/buscarOrdenes/crear-modificar-orden/${orden.id_Orden}" class="btn btn-secondary">Modificar Orden</a>
-                  </div>
-                </div>
-              `;
-              ordenesResultados.appendChild(ordenDiv);
-            });
-          } else {
-            ordenesResultados.innerHTML = `<p>No se encontraron órdenes para el paciente seleccionado.</p>`;
-          }
-        } catch (error) {
-          console.error('Error al buscar órdenes:', error);
-          mensaje.textContent = 'Error al buscar órdenes.';
-        }
-      };
+                for (let i = 1; i <= totalPages; i++) {
+                    const li = document.createElement('li');
+                    li.className = 'page-item';
+                    if (i === currentPage) {
+                        li.classList.add('active');
+                    }
 
-      searchPacienteInput.addEventListener('input', (e) => buscarPacientes(e.target.value.trim()));
-      buscarOrdenesBtn.addEventListener('click', buscarOrdenes);
-    });
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.textContent = i;
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (selectedPaciente) {
+                            buscarOrdenes(selectedPaciente.id_paciente, i);
+                        }
+                    });
+
+                    li.appendChild(a);
+                    ul.appendChild(li);
+                }
+
+                nav.appendChild(ul);
+                paginacionContainer.appendChild(nav);
+            };
+
+            searchPacienteInput.addEventListener('input', (e) => buscarPacientes(e.target.value.trim()));
+        });

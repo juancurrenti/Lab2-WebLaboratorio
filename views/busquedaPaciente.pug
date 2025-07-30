@@ -1,19 +1,15 @@
 extends layout
 
 block content
-  //- Se eliminaron las etiquetas <head> y <body> que estaban aquí incorrectamente.
   
-  //- AQUÍ SE CAMBIÓ .container POR .container-fluid PARA EXPANDIR EL ANCHO
   .container-fluid
     h2#titulo Buscar Paciente
 
-    //- Muestra los mensajes de éxito que llegan después de una redirección
     if successMessages && successMessages.length > 0
       .alert.alert-success.alert-dismissible.fade.show(role="alert")
         = successMessages[0]
         button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
         
-    //- Muestra los mensajes de error si los hubiera
     if errorMessages && errorMessages.length > 0
       .alert.alert-danger.alert-dismissible.fade.show(role="alert")
         = errorMessages[0]
@@ -22,6 +18,10 @@ block content
     .form-group
       label(for="searchTerm") Buscar Paciente (DNI, Apellido, Email, Teléfono)
       input#searchTerm(type="text" class="form-control" placeholder="Ingresa información para buscar")
+    
+    .form-check.my-2
+      input.form-check-input#incluirInactivos(type="checkbox")
+      label.form-check-label(for="incluirInactivos") Incluir pacientes inactivos
 
     ul#dropdown-menu(class="dropdown-menu", style="display: none; position: relative;")
 
@@ -32,7 +32,7 @@ block content
 
     p#mensaje(style="color: #ff4040; margin-top: 10px;")
     
-  //- Es mejor práctica mantener los scripts al final del bloque
+
   script(src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js")
 
   script.
@@ -41,6 +41,7 @@ block content
       const dropdownMenu = document.getElementById('dropdown-menu');
       const verPacienteBtn = document.getElementById('verPacienteBtn');
       const nuevoPacienteBtn = document.getElementById('nuevoPacienteBtn');
+      const incluirInactivosCheckbox = document.getElementById('incluirInactivos');
       let selectedPaciente = null;
 
       const buscarPacientes = async (query) => {
@@ -49,7 +50,8 @@ block content
             dropdownMenu.style.display = 'none';
             return;
           }
-          const response = await axios.get('/buscar-paciente-dinamico', { params: { query } });
+          const incluirInactivos = incluirInactivosCheckbox.checked;
+          const response = await axios.get('/buscar-paciente-dinamico', { params: { query, incluirInactivos } });
           const pacientes = response.data;
           dropdownMenu.innerHTML = ''; 
           if (pacientes.length > 0) {
@@ -57,7 +59,11 @@ block content
             pacientes.forEach((paciente) => {
               const li = document.createElement('li');
               li.className = 'dropdown-item';
-              li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni} - Email: ${paciente.email} - Teléfono: ${paciente.telefono}`;
+              const estadoTexto = paciente.estado === 'inactivo' ? ' (Inactivo)' : '';
+              li.textContent = `${paciente.nombre} ${paciente.apellido} - DNI: ${paciente.dni}${estadoTexto}`;
+              if (paciente.estado === 'inactivo') {
+                li.classList.add('text-muted');
+              }
               li.dataset.pacienteId = paciente.id_paciente;
               li.addEventListener('click', () => seleccionarPaciente(paciente));
               dropdownMenu.appendChild(li);
@@ -79,6 +85,10 @@ block content
 
       searchTermInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
+        buscarPacientes(query);
+      });
+      incluirInactivosCheckbox.addEventListener('change', () => {
+        const query = searchTermInput.value.trim();
         buscarPacientes(query);
       });
 

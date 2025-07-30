@@ -287,11 +287,11 @@ html, body {
   position: absolute;
   z-index: 1000;
   display: none;
-  background-color: #fff;            /* fondo blanco */
-  border: 1px solid rgba(0,0,0,0.15);/* borde sutil */
-  border-radius: 0.375rem;           /* redondeo igual que Bootstrap */
+  background-color: #fff;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 0.375rem;
   box-shadow: 0 .125rem .25rem rgba(0,0,0,0.075);
-  width: 100%;                       /* ocupa ancho del input */
+  width: 100%;
   max-height: 200px;
   overflow-y: auto;
 }
@@ -300,5 +300,5 @@ html, body {
   cursor: pointer;
 }
 #lista_resultados li:hover {
-  background-color: #f8f9fa;         /* gris claro al hover */
+  background-color: #f8f9fa;
 }

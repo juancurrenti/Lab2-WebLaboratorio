@@ -1,36 +1,26 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
 
-const Usuarios = sequelize.define(
-  "Usuario",
-  {
+module.exports = (sequelize) => {
+  const Usuario = sequelize.define('Usuario', {
     id_Usuario: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    nombre_usuario: {
-      type: DataTypes.STRING,
-    },
-    rol: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    correo_electronico: {
-      type: DataTypes.STRING,
-    },
-    password: {
-      type: DataTypes.STRING,
-    },
-    urlFoto:{
-      type: DataTypes.STRING,
-      allowNull: true
-    }
-  },
-  {
-    tableName: "usuarios",
-    timestamps: false,
-  }
-);
+    nombre_usuario: { type: DataTypes.STRING, allowNull: false },
+    correo_electronico: { type: DataTypes.STRING, allowNull: false, unique: true },
+    password: { type: DataTypes.STRING, allowNull: false },
 
-module.exports = Usuarios;
+  }, {
+    tableName: 'usuarios',
+    timestamps: false,
+  });
+
+  Usuario.associate = function(models) {
+    Usuario.hasOne(models.Empleado, { foreignKey: 'id_usuario_fk', as: 'empleado' });
+    Usuario.hasOne(models.Paciente, { foreignKey: 'id_usuario_fk', as: 'paciente' });
+    Usuario.hasMany(models.Auditoria, { foreignKey: 'id_Usuario', as: 'auditorias' });
+  };
+
+  return Usuario;
+};

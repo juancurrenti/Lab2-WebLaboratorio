@@ -1,35 +1,23 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database"); // Asegúrate de apuntar a la configuración correcta
-const TiposMuestra = require("./tipos_muestra"); // Importa el modelo de TiposMuestra
 
-const UnidadMedida = sequelize.define(
-  "UnidadMedida",
-  {
+module.exports = (sequelize) => {
+  const UnidadMedida = sequelize.define('UnidadMedida', {
     id_UnidadMedida: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    nombreUnidadMedida: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    idTipoMuestra: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: TiposMuestra,
-        key: "idTipoMuestra",
-      },
-    },
-  },
-  {
-    tableName: "unidadmedida", // Asegúrate de que coincida con el nombre de la tabla en tu base de datos
-    timestamps: false, // Deshabilita timestamps si no los necesitas
-  }
-);
+    nombreUnidadMedida: { type: DataTypes.STRING, allowNull: false },
+    idTipoMuestra: { type: DataTypes.INTEGER, allowNull: false },
+  }, {
+    tableName: "unidadmedida",
+    timestamps: false,
+  });
 
-// Relación con TiposMuestra
-UnidadMedida.belongsTo(TiposMuestra, { foreignKey: "idTipoMuestra", as: "tipoMuestra" });
+  UnidadMedida.associate = function(models) {
+    UnidadMedida.belongsTo(models.TiposMuestra, { foreignKey: 'idTipoMuestra', as: 'tipoMuestra' });
+    UnidadMedida.hasMany(models.Determinacion, { foreignKey: 'Unidad_Medida', as: 'determinaciones' });
+  };
 
-module.exports = UnidadMedida;
+  return UnidadMedida;
+};
