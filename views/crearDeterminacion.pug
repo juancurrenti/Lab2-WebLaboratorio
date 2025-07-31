@@ -6,22 +6,22 @@ block content
   .container-fluid
     h1 Gestión de Determinaciones
 
-    // Contenedor para mostrar mensajes de éxito o error
+
     .alert#messageContainer(role="alert" style="display: none;")
 
-    // Mostrar el nombre del examen seleccionado
+
     if idExamenSeleccionado && nombreExamenSeleccionado
       .alert.alert-primary.mt-3
         strong Examen seleccionado:
         |  #{nombreExamenSeleccionado}
 
-    // Selección de examen con búsqueda incremental
+
     .form-group.mt-3
       label(for="search_examen") Buscar Examen:
       input#search_examen.form-control(type="text" placeholder="Escribe para buscar un examen..." autocomplete="off")
       ul#examen_suggestions.list-group.mt-2
 
-    // Contenedor de determinaciones
+
     .mt-4
       h3#determinationTitle.hidden Determinaciones para el examen seleccionado:
       p#noDeterminations.hidden No existen determinaciones para el examen seleccionado.
@@ -38,7 +38,7 @@ block content
     button.btn.btn-primary.hidden#addDetermination(type="button") Añadir Nueva Determinación
     button.btn.btn-success.hidden#saveDeterminations.ms-2(type="button") Guardar Determinaciones
     a.btn.btn-secondary.ms-2(href="javascript:history.back()") Volver
-    // Modal de confirmación de guardado
+
     .modal.fade#confirmationModal(tabindex="-1" role="dialog" aria-hidden="true")
       .modal-dialog(role="document")
         .modal-content
@@ -51,7 +51,7 @@ block content
             button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-primary(type="button" id="confirmSubmit") Confirmar
 
-    // Modal de confirmación para eliminación
+
     .modal.fade#deleteModal(tabindex="-1" role="dialog" aria-hidden="true")
       .modal-dialog(role="document")
         .modal-content

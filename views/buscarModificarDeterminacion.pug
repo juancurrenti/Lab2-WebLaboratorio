@@ -7,7 +7,7 @@ block content
   .container
     h1(class="margin-top-custom") Buscar y Modificar Determinación
 
-    // Formulario de búsqueda por código o nombre del examen
+
     form(action="/modificar-determinacion/buscar-determinacion" method="post" class="mt-4")
       div.form-group
         label(for="codigo") Código del Examen:
@@ -17,7 +17,7 @@ block content
         input(type="text" name="nombre_examen" class="form-control")
       button(type="submit" class="btn btn-primary") Buscar Determinaciones
 
-    // Mostrar resultados de búsqueda si los hay
+
     if determinacionesEncontradas
       h2(class="mt-4") Determinaciones Encontradas
       table.table.table-striped
@@ -40,7 +40,7 @@ block content
               td= determinacion.Sexo
               td= determinacion.estado ? 'Activa' : 'Inactiva'
               td
-                // Formulario para modificar estado
+
                 form(action="/modificar-determinacion/modificar-estado" method="post")
                   input(type="hidden" name="id_Determinacion" value=determinacion.id_Determinacion)
                   div.form-group

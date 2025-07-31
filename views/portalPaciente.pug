@@ -38,12 +38,12 @@ block content
       hr
       .row.g-3.justify-content-center
         .col-md-3.col-sm-6
-          // Enlace de logout modificado para disparar el modal
+
           a.btn.btn-outline-danger.btn-lg.w-100(href="#", data-bs-toggle="modal", data-bs-target="#logoutModal")
             i.fas.fa-sign-out-alt.me-2
             | Salir
 
-    // Modal para confirmar cierre de sesión
+
     .modal.fade#logoutModal(tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true")
       .modal-dialog
         .modal-content

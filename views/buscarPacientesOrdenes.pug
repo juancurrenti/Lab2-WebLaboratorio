@@ -4,22 +4,21 @@ block content
     .container-fluid
         h1 Buscar Orden de Trabajo
 
-        // Campo de búsqueda dinámica
+
         .form-group
             label(for="searchPaciente") Buscar paciente (DNI, Nombre, Apellido):
             input#searchPaciente.form-control(type="text" placeholder="Escribe para buscar pacientes")
 
-        // Menú desplegable dinámico
+
         ul#dropdown-menu.dropdown-menu(style="display: none; position: relative;")
 
-        // Contenedor de resultados de órdenes
         h2(style="margin-top: 20px;") Órdenes de Trabajo
         div#ordenesResultados(style="margin-top: 20px;")
         
-        // Contenedor para los botones de paginación
+
         div#paginacion-container.d-flex.justify-content-center.mt-4
 
-        // Mensaje de error o información
+
         p#mensaje(style="color: #ff4040; margin-top: 10px;")
         a.btn.btn-secondary.mt-4(href="javascript:history.back()") Volver
 

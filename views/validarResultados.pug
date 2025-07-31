@@ -11,7 +11,7 @@ block content
           h2 Orden: #{orden[0].OrdenID} - Paciente: #{orden[0].NombrePaciente} #{orden[0].ApellidoPaciente}
           p Edad: #{orden[0].EdadPaciente} años | Género: #{orden[0].SexoPaciente}
 
-      // Tabla principal con resultados
+
       table.table.table-striped
         thead
           tr
@@ -27,17 +27,30 @@ block content
               td= item.NombreExamen
               td= item.NombreDeterminacion
               td= item.UnidadMedidaDeterminacion
-              td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
-              td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino' 
-              td
-                input.form-control(type="text" name=`resultado_${item.DeterminacionID}` value=item.ResultadoValor readonly )
 
-      // Botón para abrir el modal de confirmación
+              td
+                if item.ValorEsperado
+                  = item.ValorEsperado
+                else
+                  = `${item.ValorReferenciaMinimo} - ${item.ValorReferenciaMaximo}`
+
+              td
+                case item.SexoValorReferencia
+                  when 'M'
+                    | Masculino
+                  when 'F'
+                    | Femenino
+                  when 'A'
+                    | Ambos
+              td
+                input.form-control(type="text" name=`resultado_${item.DeterminacionID}` value=item.ResultadoValor readonly)
+
+
       .mt-4
         button.btn.btn-success(type="button" data-bs-toggle="modal" data-bs-target="#confirmModal") Informar Orden
         a.btn.btn-primary.ms-2(href=`/orden/registrarResultados/${orden[0].OrdenID}?origen=validar&modificar=true`) Modificar Resultados
 
-      // Modal de confirmación
+
       .modal.fade#confirmModal(tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true")
         .modal-dialog.modal-lg
           .modal-content
@@ -62,8 +75,21 @@ block content
                       td= item.NombreExamen
                       td= item.NombreDeterminacion
                       td= item.UnidadMedidaDeterminacion
-                      td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
-                      td= item.SexoValorReferencia == 'M' ? 'Masculino' : 'Femenino' 
+
+                      td
+                        if item.ValorEsperado
+                          = item.ValorEsperado
+                        else
+                          = `${item.ValorReferenciaMinimo} - ${item.ValorReferenciaMaximo}`
+
+                      td
+                        case item.SexoValorReferencia
+                          when 'M'
+                            | Masculino
+                          when 'F'
+                            | Femenino
+                          when 'A'
+                            | Ambos
                       td= item.ResultadoValor
             .modal-footer
               form(method="POST" action="/orden/confirmarValidacion")

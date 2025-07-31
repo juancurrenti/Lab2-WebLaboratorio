@@ -367,7 +367,7 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     const orden = await OrdenTrabajo.findByPk(idOrden);
     if (!orden) return res.status(404).send("Orden no encontrada.");
     if (!usuarioSesion.esEmpleado && orden.id_Paciente !== usuarioSesion.idPaciente) {
-      req.flash('error','No tienes permiso para ver esta orden.');
+      req.flash('error', 'No tienes permiso para ver esta orden.');
       return res.redirect('/portal-paciente');
     }
 
@@ -406,20 +406,20 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     }
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    res.setHeader('Content-Type','application/pdf');
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=Orden_${idOrden}.pdf`);
     doc.pipe(res);
 
-    const watermarkPath = path.join(__dirname,'../public/img/iconopdf.png');
+    const watermarkPath = path.join(__dirname, '../public/img/iconopdf.png');
     const drawWatermark = () => {
       if (!fs.existsSync(watermarkPath)) return;
       const tile = 50, xs = 100, ys = 100;
       doc.save().opacity(0.07);
       const cols = Math.ceil(doc.page.width / xs);
       const rows = Math.ceil(doc.page.height / ys);
-      for (let i=0; i<cols; i++){
-        for (let j=0; j<rows; j++){
-          doc.image(watermarkPath, i*xs, j*ys, { width: tile });
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          doc.image(watermarkPath, i * xs, j * ys, { width: tile });
         }
       }
       doc.restore();
@@ -428,7 +428,7 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     doc.on('pageAdded', drawWatermark);
 
     if (fs.existsSync(watermarkPath)) {
-      doc.image(watermarkPath, (doc.page.width-60)/2, 30, { width: 60 });
+      doc.image(watermarkPath, (doc.page.width - 60) / 2, 30, { width: 60 });
     }
 
     const titleX = 50, titleY = 120;
@@ -449,23 +449,25 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
       `Fecha Ingreso: ${new Date(p.fecha_ingreso).toLocaleDateString('es-AR')}`,
       `Sexo: ${sexo}`
     ];
-    info.forEach((txt,i) => {
-      const x = 50 + (i%2)*250;
-      const y = 150 + Math.floor(i/2)*15;
+    info.forEach((txt, i) => {
+      const x = 50 + (i % 2) * 250;
+      const y = 150 + Math.floor(i / 2) * 15;
       doc.text(txt, x, y);
     });
     doc.moveDown(3);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).lineWidth(0.5).stroke('#333');
     doc.moveDown();
 
-    const colsX = { examen:50, det:180, res:330, ref:430 };
+
+    const colsX = { examen: 50, det: 180, res: 330, ref: 410 };
     const headerY = doc.y;
 
     doc.fontSize(9).fillColor('#333');
-    doc.text('Examen',         colsX.examen, headerY, { width:130, align:'left' })
-       .text('Determinación', colsX.det,    headerY, { width:140, align:'left' })
-       .text('Resultado',     colsX.res,    headerY, { width:100, align:'center' })
-       .text('Valores Ref.',  colsX.ref,    headerY, { width:100, align:'right' });
+    doc.text('Examen',        colsX.examen, headerY, { width: 130, align: 'left' })
+       .text('Determinación', colsX.det,    headerY, { width: 140, align: 'left' })
+       .text('Resultado',     colsX.res,    headerY, { width: 100, align: 'center' })
+
+       .text('Valores Ref.',  colsX.ref,    headerY, { width: 120, align: 'right' });
 
     doc.moveDown(1);
     doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -479,27 +481,27 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
       let refTxt = '';
 
       if (unidadesCualitativas.includes(r.unidad_medida)) {
-
         resultadoTxt = r.valor_resultado;
         refTxt = r.Valor_Esperado || 'N/A';
       } else {
-
         resultadoTxt = r.valor_resultado ? parseFloat(r.valor_resultado).toFixed(2) : 'N/A';
-        refTxt = (r.Valor_Referencia_Minimo != null && r.Valor_Referencia_Maximo != null) 
-          ? `${parseFloat(r.Valor_Referencia_Minimo).toFixed(2)} - ${parseFloat(r.Valor_Referencia_Maximo).toFixed(2)}`
+
+        refTxt = (r.Valor_Referencia_Minimo != null && r.Valor_Referencia_Maximo != null)
+          ? `${parseFloat(r.Valor_Referencia_Minimo).toFixed(2)} - ${parseFloat(r.Valor_Referencia_Maximo).toFixed(2)} ${r.unidad_medida}`
           : 'N/A';
       }
 
-      doc.text(r.nombre_examen,         colsX.examen, rowY, { width:130, align:'left' })
-         .text(r.Nombre_Determinacion,  colsX.det,    rowY, { width:140, align:'left' })
-         .text(resultadoTxt,            colsX.res,    rowY, { width:100, align:'center' })
-         .text(refTxt,                  colsX.ref,    rowY, { width:100, align:'right' });
+      doc.text(r.nombre_examen,       colsX.examen, rowY, { width: 130, align: 'left' })
+         .text(r.Nombre_Determinacion,  colsX.det,    rowY, { width: 140, align: 'left' })
+         .text(resultadoTxt,            colsX.res,    rowY, { width: 100, align: 'center' })
+
+         .text(refTxt,                  colsX.ref,    rowY, { width: 120, align: 'right' });
       doc.moveDown(1);
     });
 
     doc.end();
 
-  } catch(err) {
+  } catch (err) {
     console.error('Error al generar el PDF:', err);
     res.status(500).send('Ocurrió un error al generar el PDF.');
   }

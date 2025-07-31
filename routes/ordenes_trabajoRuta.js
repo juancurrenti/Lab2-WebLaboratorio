@@ -422,9 +422,7 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
   const idOrden = req.params.id_Orden;
   const { origen, modificar } = req.query;
 
-
   try {
-
     const resultados = await sequelize.query(
       `
       SELECT 
@@ -450,7 +448,7 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
           vr.Edad_Minima AS EdadMinimaValorReferencia,
           vr.Edad_Maxima AS EdadMaximaValorReferencia,
           vr.Valor_Esperado AS ValorEsperado,
-          r.Valor AS ResultadoValor -- Resultado existente si lo hay
+          r.Valor AS ResultadoValor
       FROM 
           ordenes_trabajo ot
       JOIN 
@@ -461,15 +459,16 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
           determinaciones d ON e.id_examen = d.id_Examen
       JOIN 
           pacientes p ON ot.id_Paciente = p.id_Paciente
-      JOIN 
+      JOIN
           valoresreferencia vr ON d.id_Determinacion = vr.id_Determinacion 
-          AND vr.Sexo = CASE 
-                            WHEN p.genero = 'masculino' THEN 'M'
-                            WHEN p.genero = 'femenino' THEN 'F'
-                        END
+          AND (vr.Sexo = CASE 
+                          WHEN p.genero = 'masculino' THEN 'M'
+                          WHEN p.genero = 'femenino' THEN 'F'
+                      END
+                OR vr.Sexo = 'A')
           AND TIMESTAMPDIFF(YEAR, p.Fecha_Nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
           AND vr.estado = 1
-      JOIN 
+      LEFT JOIN 
           unidadmedida um ON d.Unidad_Medida = um.id_UnidadMedida
       LEFT JOIN 
           resultados r ON r.id_Orden = ot.id_Orden AND r.id_Determinacion = d.id_Determinacion
@@ -783,7 +782,6 @@ router.get("/validarResultados/:id_Orden", async (req, res) => {
   const idOrden = req.params.id_Orden;
 
   try {
-
     const resultados = await sequelize.query(
       `
       SELECT 
@@ -808,6 +806,7 @@ router.get("/validarResultados/:id_Orden", async (req, res) => {
           vr.Sexo AS SexoValorReferencia,
           vr.Edad_Minima AS EdadMinimaValorReferencia,
           vr.Edad_Maxima AS EdadMaximaValorReferencia,
+          vr.Valor_Esperado AS ValorEsperado,
           r.Valor AS ResultadoValor
       FROM 
           ordenes_trabajo ot
@@ -821,10 +820,11 @@ router.get("/validarResultados/:id_Orden", async (req, res) => {
           pacientes p ON ot.id_Paciente = p.id_Paciente
       JOIN 
           valoresreferencia vr ON d.id_Determinacion = vr.id_Determinacion 
-          AND vr.Sexo = CASE 
-                            WHEN p.genero = 'masculino' THEN 'M'
-                            WHEN p.genero = 'femenino' THEN 'F'
-                        END
+          AND (vr.Sexo = CASE 
+                          WHEN p.genero = 'masculino' THEN 'M'
+                          WHEN p.genero = 'femenino' THEN 'F'
+                      END
+                OR vr.Sexo = 'A')
           AND TIMESTAMPDIFF(YEAR, p.Fecha_Nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
           AND vr.estado = 1
       JOIN 

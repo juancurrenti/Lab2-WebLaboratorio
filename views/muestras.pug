@@ -7,7 +7,7 @@ block content
     .container
       h1 Buscar Orden de Trabajo
 
-      // Formulario de búsqueda de paciente
+
       form(action="/buscarOrdenes/ordenes" method="POST" id="searchForm")
         .form-group
           label(for="dniPaciente") Buscar Orden por DNI del Paciente:
@@ -15,7 +15,6 @@ block content
 
         button(type="submit" class="btn btn-primary") Buscar
 
-      // Resultados de búsqueda de órdenes de trabajo
       h2(id="resultHeading") Resultados:
       #resultList
         if ordenesTrabajo
@@ -30,10 +29,10 @@ block content
                   li Estado: #{orden.estado}
                   li
                     .d-flex
-                      // Botón para mostrar las muestras asociadas a la orden de trabajo
+
                       a.btn.btn-primary(href=`muestras/mostrar/${orden.id_Orden}`) Mostrar Muestras
 
-    // Script para manejar la respuesta
+
     script.
       document.getElementById("searchForm").addEventListener("submit", async (e) => {
         e.preventDefault();

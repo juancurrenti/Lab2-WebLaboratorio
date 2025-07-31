@@ -1,41 +1,41 @@
 h4.section-title Flujo de Trabajo
 .row.g-3.mb-4
-  // 1 → Registrar/Buscar Paciente
+  //Registrar/Buscar Paciente
   if rol === "recepcionista" || rol === "tecnico" || rol === "bioquimico" || rol === "admin"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/buscar-paciente")
         i.fas.fa-user-plus.me-2
         | Registrar/Buscar
 
-  // 2 → Generar Orden de Trabajo
+  //Generar Orden de Trabajo
   if rol === "recepcionista" || rol === "tecnico" || rol === "bioquimico"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/orden/generacion-orden")
         i.fas.fa-notes-medical.me-2
         | Generar Orden
   
-  // → Buscar Orden de Trabajo
+  //Buscar Orden de Trabajo
   if rol === "recepcionista" || rol === "tecnico" || rol === "bioquimico"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/buscarOrdenes")
         i.fas.fa-search.me-2
         | Buscar Orden
 
-  // 3 → Analizar / Registrar Resultados
+  // Analizar / Registrar Resultados
   if rol === "bioquimico" || rol === "tecnico"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/orden/ordenesAnalitica")
         i.fas.fa-vials.me-2
         | Analizar Resultados
 
-  // 4 → Validar Resultados
+  // Validar Resultados
   if rol === "bioquimico"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/orden/pendientesAValidar")
         i.fas.fa-tasks.me-2
         | Validar Resultados
 
-  // 5 → Ver Informadas
+  //Ver Informadas
   if rol === "bioquimico" || rol === "tecnico"
     .col-md-3.col-sm-6
       a.btn.btn-dark.btn-lg.w-100(href="/orden/ordenesInformadas")

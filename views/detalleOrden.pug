@@ -76,16 +76,16 @@ block content
         p #{usuarioLogueado || 'Desconocido'}
         p Responsable Sanitario
 
-    // Botón para informar el estado de la orden
+
     .text-center
       form(action=`/muestras/actualizarEstadoOrden/${ordenes[0].id_Orden}/informada`, method='POST')
         button.btn.btn-success.btn-lg(type="submit") Marcar como Informada
 
-    // Botón para generar e imprimir el PDF con estilos de Bootstrap
+
     .text-center
       button(type='button' class='btn btn-primary' id='printButton') Imprimir PDF
 
-  // Incluir la librería html2pdf.js
+
   script(src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js')
   script.
     document.getElementById('printButton').addEventListener('click', function() {
