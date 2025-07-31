@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
     id_Orden: { type: DataTypes.INTEGER, allowNull: false },
     id_Determinacion: { type: DataTypes.INTEGER, allowNull: false },
     id_Muestra: { type: DataTypes.INTEGER, allowNull: false },
-    Valor: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    Valor: { type: DataTypes.STRING, allowNull: false },
     Unidad: { type: DataTypes.STRING, allowNull: false },
     Estado: { type: DataTypes.STRING, defaultValue: "Pendiente" },
   }, {

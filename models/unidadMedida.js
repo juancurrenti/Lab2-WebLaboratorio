@@ -7,15 +7,23 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true,
     },
-    nombreUnidadMedida: { type: DataTypes.STRING, allowNull: false },
-    idTipoMuestra: { type: DataTypes.INTEGER, allowNull: false },
+    nombreUnidadMedida: { 
+      type: DataTypes.STRING, 
+      allowNull: false 
+    },
+    tipo: {
+      type: DataTypes.ENUM('cuantitativa', 'cualitativa', 'descriptiva'),
+      allowNull: false,
+      defaultValue: 'cuantitativa'
+    }
+
   }, {
     tableName: "unidadmedida",
     timestamps: false,
   });
 
   UnidadMedida.associate = function(models) {
-    UnidadMedida.belongsTo(models.TiposMuestra, { foreignKey: 'idTipoMuestra', as: 'tipoMuestra' });
+
     UnidadMedida.hasMany(models.Determinacion, { foreignKey: 'Unidad_Medida', as: 'determinaciones' });
   };
 

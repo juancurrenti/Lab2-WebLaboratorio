@@ -23,6 +23,8 @@ const buscarOrdenesRuta = require("./routes/buscarOrdenesRuta");
 const resultadosRuta = require("./routes/resultadosRuta");
 const adminRuta = require('./routes/adminRuta');
 const usuarioRuta = require('./routes/usuarioRuta');
+const unidadesRuta = require("./routes/unidadesRuta");
+
 
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "views"));
@@ -60,6 +62,7 @@ app.use("/orden", checkRole(todosLosRoles), ordenes_trabajoRuta);
 app.use("/muestras", checkRole(todosLosRoles), resultadosRuta);
 app.use("/examen", checkRole(rolesTecnicos), examenRuta);
 app.use("/determinacion", checkRole(rolesTecnicos), determinacionesRuta);
+app.use("/unidades", checkRole(rolesTecnicos), unidadesRuta);
 app.use("/valoresreferencia", checkRole(rolesTecnicos), valoresRefRuta);
 app.use("/modificar-examen", checkRole(rolesTecnicos), modificarExamenRuta);
 app.use("/", pacienteRuta);

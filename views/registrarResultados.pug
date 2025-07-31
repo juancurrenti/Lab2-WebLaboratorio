@@ -36,15 +36,16 @@ block content
                 td= item.NombreExamen
                 td= item.NombreDeterminacion
                 td= item.UnidadMedidaDeterminacion
+
                 td
-                  - const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia']
-                  if unidadesCualitativas.includes(item.UnidadMedidaDeterminacion)
+                  if item.tipo_unidad === 'cualitativa'
                     | Esperado: #{item.ValorEsperado}
                   else
                     | #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
                 td= item.SexoValorReferencia == 'M' ? 'Masculino' : (item.SexoValorReferencia == 'F' ? 'Femenino' : 'Ambos')
+
                 td
-                  if unidadesCualitativas.includes(item.UnidadMedidaDeterminacion)
+                  if item.tipo_unidad === 'cualitativa'
                     select.form-select(
                       name=`resultado_${item.DeterminacionID}`,
                       data-determinacion=item.NombreDeterminacion,
@@ -52,7 +53,7 @@ block content
                       data-unidad=item.UnidadMedidaDeterminacion
                     )
                       option(value="" selected=(!item.ResultadoValor)) Seleccione...
-                      - const opciones = item.UnidadMedidaDeterminacion.split(' / ')
+                      - const opciones = item.UnidadMedidaDeterminacion.split(/\s*\/\s*/)
                       each opcion in opciones
                         option(value=opcion selected=(item.ResultadoValor === opcion))= opcion
                   else

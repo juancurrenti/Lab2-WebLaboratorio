@@ -1,26 +1,20 @@
 extends layout
 
 block content
-
-
   .container-fluid
     h1 Gestión de Determinaciones
 
-
     .alert#messageContainer(role="alert" style="display: none;")
-
 
     if idExamenSeleccionado && nombreExamenSeleccionado
       .alert.alert-primary.mt-3
         strong Examen seleccionado:
         |  #{nombreExamenSeleccionado}
 
-
     .form-group.mt-3
       label(for="search_examen") Buscar Examen:
       input#search_examen.form-control(type="text" placeholder="Escribe para buscar un examen..." autocomplete="off")
       ul#examen_suggestions.list-group.mt-2
-
 
     .mt-4
       h3#determinationTitle.hidden Determinaciones para el examen seleccionado:
@@ -39,6 +33,7 @@ block content
     button.btn.btn-success.hidden#saveDeterminations.ms-2(type="button") Guardar Determinaciones
     a.btn.btn-secondary.ms-2(href="javascript:history.back()") Volver
 
+
     .modal.fade#confirmationModal(tabindex="-1" role="dialog" aria-hidden="true")
       .modal-dialog(role="document")
         .modal-content
@@ -50,7 +45,6 @@ block content
           .modal-footer
             button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-primary(type="button" id="confirmSubmit") Confirmar
-
 
     .modal.fade#deleteModal(tabindex="-1" role="dialog" aria-hidden="true")
       .modal-dialog(role="document")
@@ -65,12 +59,37 @@ block content
             button.btn.btn-danger(type="button" id="confirmDelete") Confirmar Eliminación
 
 
+    .modal.fade#modalAgregarUnidad(tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true")
+      .modal-dialog
+        .modal-content
+          .modal-header
+            h5.modal-title#modalLabel Agregar Nueva Unidad de Medida
+            button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+          .modal-body
+            form#formAgregarUnidad
+              .mb-3
+                label.form-label(for="nombreUnidad") Nombre de la Unidad
+                input.form-control#nombreUnidad(type="text" required placeholder="Ej: mg/dL")
+              .mb-3
+                label.form-label Tipo de Unidad
+                div
+                  .form-check.form-check-inline
+                    input.form-check-input#tipoCuantitativa(type="radio" name="tipoUnidad" value="cuantitativa" checked)
+                    label.form-check-label(for="tipoCuantitativa") Cuantitativa
+                  .form-check.form-check-inline
+                    input.form-check-input#tipoCualitativa(type="radio" name="tipoUnidad" value="cualitativa")
+                    label.form-check-label(for="tipoCualitativa") Cualitativa
+              #alertaModal.alert.alert-danger.d-none(role="alert")
+          .modal-footer
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-primary(type="submit" form="formAgregarUnidad") Guardar Unidad
+
+
   script.
     document.addEventListener('DOMContentLoaded', function() {
-
       const examenes = !{JSON.stringify(examenes)};
-      const determinaciones = !{JSON.stringify(determinaciones)};
-      const unidadesMedida = !{JSON.stringify(unidadesMedida)};
+      let determinaciones = !{JSON.stringify(determinaciones)};
+      let unidadesMedida = !{JSON.stringify(unidadesMedida)};
       let idExamenSeleccionado = !{JSON.stringify(idExamenSeleccionado || null)};
 
       const searchInput = document.getElementById("search_examen");
@@ -85,16 +104,13 @@ block content
       const deleteModal = document.getElementById("deleteModal");
       const deleteContent = document.getElementById("deleteContent");
       const confirmDeleteButton = document.getElementById("confirmDelete");
-      
-      let currentUnits = [];
+
       let currentDeterminations = [];
       let determinationToDelete = null;
 
-
-
       function addDeterminationRow(determination = {}) {
         const tr = document.createElement("tr");
-        const unidadOptions = currentUnits.map(um => `
+        const unidadOptions = unidadesMedida.map(um => `
           <option value="${um.id_UnidadMedida}" ${um.id_UnidadMedida == determination.Unidad_Medida ? "selected" : ""}>
             ${um.nombreUnidadMedida}
           </option>
@@ -103,10 +119,13 @@ block content
         tr.innerHTML = `
           <td><input type="text" class="form-control" value="${determination.Nombre_Determinacion || ''}" name="Nombre_Determinacion" required></td>
           <td>
-            <select class="form-control" name="Unidad_Medida" required>
-              <option value="" disabled ${!determination.Unidad_Medida ? 'selected' : ''}>Selecciona una unidad</option>
-              ${unidadOptions}
-            </select>
+            <div class="d-flex align-items-center">
+              <select class="form-select unidad-medida-select" name="Unidad_Medida" required>
+                <option value="" disabled ${!determination.Unidad_Medida ? 'selected' : ''}>Selecciona una unidad</option>
+                ${unidadOptions}
+              </select>
+              <button class="btn btn-outline-primary btn-sm ms-2" type="button" data-bs-toggle="modal" data-bs-target="#modalAgregarUnidad" title="Agregar Nueva Unidad">+</button>
+            </div>
           </td>
           <td>
             <select class="form-control" name="estado" required>
@@ -135,9 +154,6 @@ block content
         if (!examenSeleccionado) return;
 
         idExamenSeleccionado = examenSeleccionado.id_examen;
-        const idTipoMuestra = examenSeleccionado.idTipoMuestra;
-        
-        currentUnits = unidadesMedida;
         currentDeterminations = determinaciones.filter(d => d.id_examen == idExamen);
 
         determinationTitle.textContent = `Determinaciones para el examen: ${examenSeleccionado.nombre_examen}`;
@@ -156,7 +172,6 @@ block content
         saveDeterminationsButton.classList.remove("hidden");
       }
 
-      
       if (idExamenSeleccionado) {
         updateDeterminations(idExamenSeleccionado);
         const examenActual = examenes.find(e => e.id_examen == idExamenSeleccionado);
@@ -170,7 +185,7 @@ block content
         suggestionsList.innerHTML = "";
         if (searchTerm.trim() === "") return;
 
-        const filteredExams = examenes.filter(examen => 
+        const filteredExams = examenes.filter(examen =>
           examen.nombre_examen.toLowerCase().includes(searchTerm) ||
           (examen.descripcion || "").toLowerCase().includes(searchTerm) ||
           (examen.codigo || "").toLowerCase().includes(searchTerm)
@@ -197,7 +212,7 @@ block content
         noDeterminations.classList.add("hidden");
         determinationsTable.classList.remove("hidden");
       });
-      
+
       saveDeterminationsButton.addEventListener("click", () => {
         const rows = determinationsBody.querySelectorAll("tr");
         const determinacionesArray = Array.from(rows).map(row => ({
@@ -206,7 +221,7 @@ block content
           Unidad_Medida: row.querySelector('[name="Unidad_Medida"]').value,
           estado: parseInt(row.querySelector('[name="estado"]').value, 10),
         }));
-        
+
         const modalContent = determinacionesArray.map((det, index) => `
           <strong>Determinación ${index + 1}:</strong><br>
           Nombre: ${det.Nombre_Determinacion}<br>
@@ -216,7 +231,7 @@ block content
         document.getElementById("modalContent").innerHTML = modalContent;
         new bootstrap.Modal(document.getElementById('confirmationModal')).show();
       });
-      
+
       confirmDeleteButton.addEventListener("click", async () => {
         if (!determinationToDelete) return;
         const idDeterminacion = determinationToDelete.dataset.id;
@@ -239,10 +254,10 @@ block content
         messageContainer.style.display = 'block';
         setTimeout(() => { messageContainer.style.display = 'none'; }, 5000);
       });
-      
+
       document.getElementById("confirmSubmit").addEventListener("click", async () => {
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
-        if(modalInstance) modalInstance.hide();
+        if (modalInstance) modalInstance.hide();
 
         const rows = determinationsBody.querySelectorAll("tr");
         const determinacionesArray = Array.from(rows).map(row => ({
@@ -264,6 +279,8 @@ block content
           if (response.ok) {
             messageContainer.className = 'alert alert-success';
             messageContainer.textContent = 'Datos guardados y/o actualizados exitosamente.';
+
+            setTimeout(() => { window.location.reload(); }, 2000);
           } else {
             throw new Error('Fallo al guardar');
           }
@@ -274,5 +291,65 @@ block content
         }
         messageContainer.style.display = 'block';
         setTimeout(() => { messageContainer.style.display = 'none'; }, 5000);
+      });
+
+
+      const formAgregarUnidad = document.getElementById('formAgregarUnidad');
+      const modalElement = document.getElementById('modalAgregarUnidad');
+      const modalBootstrap = new bootstrap.Modal(modalElement);
+      const alertaModal = document.getElementById('alertaModal');
+
+      formAgregarUnidad.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const nombre = document.getElementById('nombreUnidad').value.trim();
+        const tipo = document.querySelector('input[name="tipoUnidad"]:checked').value;
+
+        if (!nombre) {
+          alertaModal.textContent = 'El nombre no puede estar vacío.';
+          alertaModal.classList.remove('d-none');
+          return;
+        }
+
+        fetch('/unidades/crear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombreUnidadMedida: nombre, tipo: tipo }),
+        })
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Error desconocido') });
+          }
+          return response.json();
+        })
+        .then(nuevaUnidad => {
+          unidadesMedida.push(nuevaUnidad);
+
+          const todosLosSelects = document.querySelectorAll('.unidad-medida-select');
+          todosLosSelects.forEach(select => {
+            const option = document.createElement('option');
+            option.value = nuevaUnidad.id_UnidadMedida;
+            option.textContent = nuevaUnidad.nombreUnidadMedida;
+            select.appendChild(option);
+          });
+          
+          modalBootstrap.hide();
+          formAgregarUnidad.reset();
+          alertaModal.classList.add('d-none');
+
+          messageContainer.className = 'alert alert-success';
+          messageContainer.textContent = `Unidad "${nuevaUnidad.nombreUnidadMedida}" creada con éxito.`;
+          messageContainer.style.display = 'block';
+          setTimeout(() => { messageContainer.style.display = 'none'; }, 3000);
+        })
+        .catch(error => {
+          alertaModal.textContent = error.message;
+          alertaModal.classList.remove('d-none');
+        });
+      });
+
+      modalElement.addEventListener('hidden.bs.modal', function () {
+        alertaModal.classList.add('d-none');
+        formAgregarUnidad.reset();
       });
     });

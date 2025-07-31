@@ -19,6 +19,7 @@ block content
             value=determinacion.id_Determinacion 
             data-unidad=determinacion.unidadMedida.nombreUnidadMedida 
             data-examen=determinacion.examen.nombre_examen
+            data-tipo=determinacion.unidadMedida.tipo
           )= determinacion.Nombre_Determinacion
 
     .mt-4
@@ -70,8 +71,8 @@ block content
   script.
     $(function() {
       const determinaciones = !{JSON.stringify(determinaciones)};
-      const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
       let unidadMedidaSeleccionada = '';
+      let tipoUnidadSeleccionada = '';
       let idValorReferenciaAEliminar = null;
 
       $('#buscar_determinacion').on('input', function() {
@@ -80,7 +81,7 @@ block content
         if (q.length > 0) {
           determinaciones.forEach(d => {
             if (d.Nombre_Determinacion.toLowerCase().includes(q)) {
-              $lista.append(`<li class="resultado list-group-item list-group-item-action" data-id="${d.id_Determinacion}" data-unidad="${d.unidadMedida.nombreUnidadMedida}" data-examen="${d.examen.nombre_examen}"><div><strong>${d.Nombre_Determinacion}</strong></div><div><small>Examen: ${d.examen.nombre_examen}</small></div></li>`);
+              $lista.append(`<li class="resultado list-group-item list-group-item-action" data-id="${d.id_Determinacion}" data-unidad="${d.unidadMedida.nombreUnidadMedida}" data-examen="${d.examen.nombre_examen}" data-tipo="${d.unidadMedida.tipo}"><div><strong>${d.Nombre_Determinacion}</strong></div><div><small>Examen: ${d.examen.nombre_examen}</small></div></li>`);
             }
           });
           $('#resultados_busqueda').show();
@@ -92,6 +93,8 @@ block content
       $(document).on('click', '.resultado', async function() {
         const id = $(this).data('id');
         unidadMedidaSeleccionada = $(this).data('unidad');
+        tipoUnidadSeleccionada = $(this).data('tipo');
+
         const nombreCompleto = `${$(this).find('strong').text()} (Examen: ${$(this).data('examen')})`;
         $('#id_Determinacion').val(id);
         $('#buscar_determinacion').val(nombreCompleto);
@@ -99,7 +102,7 @@ block content
         try {
           const response = await $.get(`/valoresreferencia/valores/${id}`);
           $('#valoresReferenciaBody').empty();
-          response.valoresReferencia.forEach(vr => addRow(vr, unidadMedidaSeleccionada));
+          response.valoresReferencia.forEach(vr => addRow(vr, unidadMedidaSeleccionada, tipoUnidadSeleccionada));
           $('#addValorReferencia, #saveValoresReferencia, #volverBtn').show();
         } catch (error) {
           console.error('Error al obtener los valores de referencia:', error);
@@ -107,20 +110,22 @@ block content
       });
 
       $('#addValorReferencia').on('click', function() {
-        addRow({}, unidadMedidaSeleccionada);
+        addRow({}, unidadMedidaSeleccionada, tipoUnidadSeleccionada);
       });
 
-      function addRow(vr = {}, unidadMedida = '') {
-        const esCualitativa = unidadesCualitativas.includes(unidadMedida);
+      function addRow(vr = {}, unidadMedida = '', tipoUnidad = '') {
+        const esCualitativa = tipoUnidad === 'cualitativa';
         
         let valorFieldsHtml = '';
         let valorEsperadoHtml = '';
 
         if (esCualitativa) {
-          const opciones = unidadMedida.split(' / ');
+          const opciones = unidadMedida.split('/');
           let opcionesHtml = `<option value="">Seleccione...</option>`;
           opciones.forEach(op => {
-            opcionesHtml += `<option value="${op}" ${vr.Valor_Esperado === op ? 'selected' : ''}>${op}</option>`;
+            const trimmedOp = op.trim();
+
+            opcionesHtml += `<option value="${trimmedOp}" ${vr.Valor_Esperado === trimmedOp ? 'selected' : ''}>${trimmedOp}</option>`;
           });
           valorFieldsHtml = `<td><input type="number" class="form-control" disabled></td><td><input type="number" class="form-control" disabled></td>`;
           valorEsperadoHtml = `<td><select class="form-control" name="Valor_Esperado" required>${opcionesHtml}</select></td>`;
@@ -170,7 +175,7 @@ block content
       $('#saveValoresReferencia').on('click', function() {
         const rows = $('#valoresReferenciaBody tr');
         let modalHtml = '<h5>Resumen de los valores a guardar:</h5>';
-        const esCualitativa = unidadesCualitativas.includes(unidadMedidaSeleccionada);
+        const esCualitativa = tipoUnidadSeleccionada === 'cualitativa';
 
         rows.each(function(index) {
           const r = $(this);
@@ -200,7 +205,7 @@ block content
       $('#confirmSubmit').off('click').on('click', function() {
         const idDet = $('#id_Determinacion').val();
         const valoresReferencia = [];
-        const esCualitativa = unidadesCualitativas.includes(unidadMedidaSeleccionada);
+        const esCualitativa = tipoUnidadSeleccionada === 'cualitativa';
 
         $('#valoresReferenciaBody tr').each(function() {
           const r = $(this);

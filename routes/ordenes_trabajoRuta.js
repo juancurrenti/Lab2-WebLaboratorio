@@ -7,7 +7,7 @@ const PDFDocument = require("pdfkit");
 
 
 const { 
-  sequelize, OrdenTrabajo, Muestra, Examen, Paciente, 
+  sequelize, UnidadMedida, OrdenTrabajo, Muestra, Examen, Paciente, 
   OrdenesExamen, TiposMuestra, Resultado, Determinacion
 } = require("../models");
 const auditoriaController = require("./AuditoriaRuta");
@@ -419,17 +419,17 @@ router.post("/muestras/cambiar-estado/:idMuestra", async (req, res) => {
 
 
 router.get("/registrarResultados/:id_Orden", async (req, res) => {
+
   const idOrden = req.params.id_Orden;
   const { origen, modificar } = req.query;
 
   try {
+
     const resultados = await sequelize.query(
       `
       SELECT 
           ot.id_Orden AS OrdenID,
           ot.Fecha_Creacion AS FechaCreacion,
-          ot.Fecha_Entrega AS FechaEntrega,
-          p.id_Paciente AS PacienteID,
           p.Nombre AS NombrePaciente,
           p.Apellido AS ApellidoPaciente,
           p.Fecha_Nacimiento AS FechaNacimiento,
@@ -437,17 +437,15 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
           TIMESTAMPDIFF(YEAR, p.Fecha_Nacimiento, CURDATE()) AS EdadPaciente,
           e.id_examen AS ExamenID,
           e.nombre_examen AS NombreExamen,
-          e.descripcion AS DescripcionExamen,
           d.id_Determinacion AS DeterminacionID,
           d.Nombre_Determinacion AS NombreDeterminacion,
           um.nombreUnidadMedida AS UnidadMedidaDeterminacion,
-          vr.id_ValorReferencia AS ValorReferenciaID,
+          um.tipo AS tipo_unidad,
           vr.Valor_Referencia_Minimo AS ValorReferenciaMinimo,
           vr.Valor_Referencia_Maximo AS ValorReferenciaMaximo,
-          vr.Sexo AS SexoValorReferencia,
-          vr.Edad_Minima AS EdadMinimaValorReferencia,
-          vr.Edad_Maxima AS EdadMaximaValorReferencia,
           vr.Valor_Esperado AS ValorEsperado,
+          -- Esta es la línea clave: obtiene el resultado guardado desde la columna "Valor".
+          -- Si no existe un resultado para una determinación, este campo será NULL.
           r.Valor AS ResultadoValor
       FROM 
           ordenes_trabajo ot
@@ -460,18 +458,19 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
       JOIN 
           pacientes p ON ot.id_Paciente = p.id_Paciente
       JOIN
+          unidadmedida um ON d.Unidad_Medida = um.id_UnidadMedida
+      LEFT JOIN -- Se usa LEFT JOIN para incluir determinaciones aunque no tengan un resultado guardado aún.
+          resultados r ON r.id_Orden = ot.id_Orden AND r.id_Determinacion = d.id_Determinacion
+      LEFT JOIN -- Se usa LEFT JOIN para incluir determinaciones aunque no tengan valores de referencia.
           valoresreferencia vr ON d.id_Determinacion = vr.id_Determinacion 
+          -- Lógica para seleccionar el valor de referencia correcto según sexo y edad del paciente.
           AND (vr.Sexo = CASE 
-                          WHEN p.genero = 'masculino' THEN 'M'
-                          WHEN p.genero = 'femenino' THEN 'F'
-                      END
-                OR vr.Sexo = 'A')
+                         WHEN p.genero = 'masculino' THEN 'M'
+                         WHEN p.genero = 'femenino' THEN 'F'
+                       END
+              OR vr.Sexo = 'A')
           AND TIMESTAMPDIFF(YEAR, p.Fecha_Nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
           AND vr.estado = 1
-      LEFT JOIN 
-          unidadmedida um ON d.Unidad_Medida = um.id_UnidadMedida
-      LEFT JOIN 
-          resultados r ON r.id_Orden = ot.id_Orden AND r.id_Determinacion = d.id_Determinacion
       WHERE 
           ot.id_Orden = :idOrden;
       `,
@@ -481,10 +480,25 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
       }
     );
 
-    res.render("registrarResultados", {pageTitle: `Registrar Resultados - Orden N° ${idOrden}`, orden: resultados, origen: origen, modificar: modificar === 'true' });
+
+    if (resultados.length === 0) {
+      req.flash('error_msg', `No se encontró la orden de trabajo N° ${idOrden}.`);
+      return res.redirect('/orden');
+    }
+
+
+    res.render("registrarResultados", {
+      pageTitle: `Registrar Resultados - Orden N° ${idOrden}`, 
+      orden: resultados, 
+      origen: origen, 
+      modificar: modificar === 'true' 
+    });
+
   } catch (error) {
-    console.error("Error ejecutando la consulta:", error);
-    res.status(500).send("Hubo un problema al cargar los resultados.");
+
+    console.error("Error ejecutando la consulta para cargar resultados:", error);
+    req.flash('error_msg', 'Hubo un problema al cargar la página de resultados.');
+    res.redirect(origen || '/orden');
   }
 });
 
@@ -497,9 +511,19 @@ router.post("/registrarResultados", async (req, res) => {
     let transaction;
 
     try {
+
+        const unidadesCualitativasDB = await UnidadMedida.findAll({
+            where: {
+                tipo: ['cualitativa', 'descriptiva']
+            },
+            attributes: ['nombreUnidadMedida']
+        });
+
+        const nombresUnidadesCualitativas = unidadesCualitativasDB.map(u => u.nombreUnidadMedida);
+
         transaction = await sequelize.transaction();
 
-        const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
+
 
         for (const key in campos) {
             if (key.startsWith("resultado_")) {
@@ -514,30 +538,39 @@ router.post("/registrarResultados", async (req, res) => {
                 let errorValidacion = null;
 
 
-                if (unidadesCualitativas.includes(unidad)) {
+                if (nombresUnidadesCualitativas.includes(unidad)) {
 
                     const opcionesValidas = unidad.split(' / ');
-                    if (opcionesValidas.includes(valorStr)) {
-                        valor = valorStr;
+
+                    if (opcionesValidas.length > 1) {
+                        if (opcionesValidas.includes(valorStr)) {
+                            valor = valorStr;
+                        } else {
+                            errorValidacion = `El valor "${valorStr}" no es válido para la unidad "${unidad}".`;
+                        }
                     } else {
-                        errorValidacion = `El valor "${valorStr}" no es válido para la unidad "${unidad}".`;
+
+                        valor = valorStr;
                     }
+
                 } else {
 
-                    valor = parseFloat(valorStr);
-                    if (isNaN(valor)) {
-                        errorValidacion = `El valor "${valorStr}" no es un número válido.`;
+                    const valorNum = parseFloat(valorStr.replace(',', '.'));
+
+                    if (isNaN(valorNum)) {
+                        errorValidacion = `El resultado "${valorStr}" no es un número válido.`;
                     } else {
-                      const refMaxStr = campos[`ref_max_${idDeterminacion}`];
-                      if (refMaxStr !== undefined && refMaxStr !== null) {
-                        const refMax = parseFloat(refMaxStr);
-                        const limiteSuperior = refMax * (1 + MARGEN_VALIDACION);
-                        if (valor < 0 || valor > limiteSuperior) {
-                          errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número entre 0 y ${limiteSuperior.toFixed(2)}.`;
+                        valor = valorNum;
+                        const refMaxStr = campos[`ref_max_${idDeterminacion}`];
+                        if (refMaxStr !== undefined && refMaxStr !== null && String(refMaxStr).trim() !== '') {
+                            const refMax = parseFloat(refMaxStr);
+                            const limiteSuperior = refMax * (1 + MARGEN_VALIDACION);
+                            if (valor < 0 || valor > limiteSuperior) {
+                                errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número entre 0 y ${limiteSuperior.toFixed(2)}.`;
+                            }
+                        } else if (valor < 0) {
+                            errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número positivo.`;
                         }
-                      } else if (valor < 0) {
-                        errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número positivo.`;
-                      }
                     }
                 }
 
@@ -546,8 +579,8 @@ router.post("/registrarResultados", async (req, res) => {
                     req.flash('error', errorValidacion);
                     return res.redirect(`/orden/registrarResultados/${idOrden}${origen ? `?origen=${origen}` : ''}`);
                 }
-
                 
+
                 const [resultadoExistente] = await sequelize.query(
                     `SELECT id_Resultado FROM resultados WHERE id_Orden = :idOrden AND id_Determinacion = :idDeterminacion`,
                     { replacements: { idOrden, idDeterminacion }, type: sequelize.QueryTypes.SELECT, transaction }
