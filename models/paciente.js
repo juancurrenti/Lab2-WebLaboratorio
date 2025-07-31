@@ -21,7 +21,7 @@ module.exports = (sequelize) => {
         estado: {
             type: DataTypes.STRING,
             allowNull: false,
-            defaultValue: 'activo' // Valores posibles: 'activo', 'inactivo'
+            defaultValue: 'activo'
         }
     }, {
         timestamps: false,

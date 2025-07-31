@@ -6,11 +6,8 @@ block content
 
   .container-fluid.margin-top-custom
     h1.mt-4 Valores de Referencia
-
-    // Contenedor para mensajes de validación
     #message-placeholder
 
-    // Buscar Determinación
     .form-group.position-relative
       label(for="buscar_determinacion") Buscar Determinación:
       input#buscar_determinacion.form-control(type="text" placeholder="Escribe para buscar…" autocomplete="off")
@@ -18,10 +15,12 @@ block content
         ul#lista_resultados.list-group
       select#id_Determinacion.form-control(name="id_Determinacion" required style="display: none;")
         each determinacion in determinaciones
-          option(value=determinacion.id_Determinacion data-unidad=determinacion.unidadMedida.nombreUnidadMedida data-examen=determinacion.examen.nombre_examen)
-            | #{determinacion.Nombre_Determinacion}
+          option(
+            value=determinacion.id_Determinacion 
+            data-unidad=determinacion.unidadMedida.nombreUnidadMedida 
+            data-examen=determinacion.examen.nombre_examen
+          )= determinacion.Nombre_Determinacion
 
-    // Tabla de Valores de Referencia
     .mt-4
       h3 Valores de Referencia
       table#valoresReferenciaTable.table.table-bordered
@@ -32,6 +31,7 @@ block content
             th Sexo
             th Valor Mínimo
             th Valor Máximo
+            th Valor Esperado
             th Estado
             th Unidad de Medida
             th Acción
@@ -39,7 +39,7 @@ block content
 
       button#addValorReferencia.btn.btn-primary.mt-2(type="button" style="display: none;") Agregar Valor de Referencia
       button#saveValoresReferencia.btn.btn-success.mt-2.ms-2(type="button" style="display: none;") Guardar Valores de Referencia
-      button#volverBtn.btn.btn-secondary.mt-2.ms-2(type="button" style="display: none;") Volver
+      a.btn.btn-secondary.mt-2.ms-2(href="javascript:history.back()") Volver
 
     // Modal Confirmación de Datos
     .modal.fade#confirmationModal(tabindex="-1" role="dialog")
@@ -70,8 +70,9 @@ block content
   script.
     $(function() {
       const determinaciones = !{JSON.stringify(determinaciones)};
+      const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
+      let unidadMedidaSeleccionada = '';
       let idValorReferenciaAEliminar = null;
-
 
       $('#buscar_determinacion').on('input', function() {
         const q = $(this).val().toLowerCase();
@@ -88,10 +89,9 @@ block content
         }
       });
 
-
       $(document).on('click', '.resultado', async function() {
         const id = $(this).data('id');
-        const unidadMedida = $(this).data('unidad');
+        unidadMedidaSeleccionada = $(this).data('unidad');
         const nombreCompleto = `${$(this).find('strong').text()} (Examen: ${$(this).data('examen')})`;
         $('#id_Determinacion').val(id);
         $('#buscar_determinacion').val(nombreCompleto);
@@ -99,39 +99,51 @@ block content
         try {
           const response = await $.get(`/valoresreferencia/valores/${id}`);
           $('#valoresReferenciaBody').empty();
-          response.valoresReferencia.forEach(vr => addRow(vr, unidadMedida));
+          response.valoresReferencia.forEach(vr => addRow(vr, unidadMedidaSeleccionada));
           $('#addValorReferencia, #saveValoresReferencia, #volverBtn').show();
         } catch (error) {
           console.error('Error al obtener los valores de referencia:', error);
         }
       });
-      
-
-      $(document).on('click', '#volverBtn', function() {
-        history.back();
-      });
-
 
       $('#addValorReferencia').on('click', function() {
-        const unidad = determinaciones.find(d => d.id_Determinacion == $('#id_Determinacion').val())?.unidadMedida?.nombreUnidadMedida || '';
-        addRow({}, unidad);
+        addRow({}, unidadMedidaSeleccionada);
       });
 
-      function addRow(vr={}, unidadMedida='') {
+      function addRow(vr = {}, unidadMedida = '') {
+        const esCualitativa = unidadesCualitativas.includes(unidadMedida);
+        
+        let valorFieldsHtml = '';
+        let valorEsperadoHtml = '';
+
+        if (esCualitativa) {
+          const opciones = unidadMedida.split(' / ');
+          let opcionesHtml = `<option value="">Seleccione...</option>`;
+          opciones.forEach(op => {
+            opcionesHtml += `<option value="${op}" ${vr.Valor_Esperado === op ? 'selected' : ''}>${op}</option>`;
+          });
+          valorFieldsHtml = `<td><input type="number" class="form-control" disabled></td><td><input type="number" class="form-control" disabled></td>`;
+          valorEsperadoHtml = `<td><select class="form-control" name="Valor_Esperado" required>${opcionesHtml}</select></td>`;
+        } else {
+          valorFieldsHtml = `
+            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Minimo" value="${vr.Valor_Referencia_Minimo != null ? vr.Valor_Referencia_Minimo : ''}" required></td>
+            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Maximo" value="${vr.Valor_Referencia_Maximo != null ? vr.Valor_Referencia_Maximo : ''}" required></td>`;
+          valorEsperadoHtml = `<td><select class="form-control" disabled><option>N/A</option></select></td>`;
+        }
+
         const row = `
           <tr data-id="${vr.id_ValorReferencia || ''}">
             <td><input type="number" class="form-control" name="Edad_Minima" value="${vr.Edad_Minima != null ? vr.Edad_Minima : ''}" required></td>
             <td><input type="number" class="form-control" name="Edad_Maxima" value="${vr.Edad_Maxima != null ? vr.Edad_Maxima : ''}" required></td>
             <td><select class="form-control" name="Sexo" required><option value="M" ${vr.Sexo==='M'?'selected':''}>Masculino</option><option value="F" ${vr.Sexo==='F'?'selected':''}>Femenino</option><option value="A" ${vr.Sexo==='A'?'selected':''}>Ambos Sexos</option></select></td>
-            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Minimo" value="${vr.Valor_Referencia_Minimo != null ? vr.Valor_Referencia_Minimo : ''}" required></td>
-            <td><input type="number" step="0.01" class="form-control" name="Valor_Referencia_Maximo" value="${vr.Valor_Referencia_Maximo != null ? vr.Valor_Referencia_Maximo : ''}" required></td>
+            ${valorFieldsHtml}
+            ${valorEsperadoHtml}
             <td><select class="form-control" name="Estado" required><option value="1" ${vr.Estado === 1 || vr.Estado === undefined ? 'selected' : ''}>Activo</option><option value="0" ${vr.Estado === 0 ? 'selected' : ''}>Inactivo</option></select></td>
             <td>${unidadMedida}</td>
             <td><button type="button" class="btn btn-danger btn-sm delete-row">Eliminar</button></td>
           </tr>`;
         $('#valoresReferenciaBody').append(row);
       }
-
 
       $(document).on('click', '.delete-row', function() {
         const row = $(this).closest('tr');
@@ -146,6 +158,7 @@ block content
           new bootstrap.Modal($('#deleteModal')[0]).show();
         }
       });
+
       $('#confirmDelete').on('click', function() {
         if (!idValorReferenciaAEliminar) return;
         $.ajax({ url:`/valoresreferencia/eliminar/${idValorReferenciaAEliminar}`, method:'DELETE',
@@ -154,83 +167,58 @@ block content
         });
       });
 
-
       $('#saveValoresReferencia').on('click', function() {
-        const idDet = $('#id_Determinacion').val();
-        if (!idDet) return;
-
-        $('#message-placeholder').empty();
         const rows = $('#valoresReferenciaBody tr');
-        const valoresReferencia = [];
-        let allValid = true;
-        let errorMessage = '';
+        let modalHtml = '<h5>Resumen de los valores a guardar:</h5>';
+        const esCualitativa = unidadesCualitativas.includes(unidadMedidaSeleccionada);
 
-        rows.each(function() {
+        rows.each(function(index) {
           const r = $(this);
-          const minEdad = parseFloat(r.find('input[name="Edad_Minima"]').val());
-          const maxEdad = parseFloat(r.find('input[name="Edad_Maxima"]').val());
-          const vMin = parseFloat(r.find('input[name="Valor_Referencia_Minimo"]').val());
-          const vMax = parseFloat(r.find('input[name="Valor_Referencia_Maximo"]').val());
+          const edadMin = r.find('input[name="Edad_Minima"]').val();
+          const edadMax = r.find('input[name="Edad_Maxima"]').val();
+          const sexo = r.find('select[name="Sexo"] option:selected').text();
           
-          r.find('input,select').removeClass('is-invalid');
+          modalHtml += `<div class="mb-2 p-2 border rounded"><strong>Referencia ${index + 1}:</strong><br>`;
+          modalHtml += `Edad: ${edadMin} - ${edadMax}<br>`;
+          modalHtml += `Sexo: ${sexo}<br>`;
 
-          if (isNaN(minEdad) || isNaN(maxEdad) || isNaN(vMin) || isNaN(vMax)) {
-            allValid = false;
-            errorMessage = 'Por favor, completa todos los campos requeridos.';
-            r.find('input[required]').each(function(){ if(!$(this).val()) $(this).addClass('is-invalid'); });
-            return false;
+          if (esCualitativa) {
+            const valorEsperado = r.find('select[name="Valor_Esperado"]').val();
+            modalHtml += `Valor Esperado: <strong>${valorEsperado}</strong>`;
+          } else {
+            const valMin = r.find('input[name="Valor_Referencia_Minimo"]').val();
+            const valMax = r.find('input[name="Valor_Referencia_Maximo"]').val();
+            modalHtml += `Rango: <strong>${valMin} - ${valMax}</strong>`;
           }
-          if (minEdad > maxEdad) {
-            allValid = false;
-            errorMessage = `Error: La Edad Mínima (${minEdad}) no puede ser mayor que la Edad Máxima (${maxEdad}).`;
-            r.find('input[name="Edad_Minima"], input[name="Edad_Maxima"]').addClass('is-invalid');
-            return false;
-          }
-          if (vMin > vMax) {
-            allValid = false;
-            errorMessage = `Error: El Valor Mínimo (${vMin}) no puede ser mayor que el Valor Máximo (${vMax}).`;
-            r.find('input[name="Valor_Referencia_Minimo"], input[name="Valor_Referencia_Maximo"]').addClass('is-invalid');
-            return false;
-          }
-
-          valoresReferencia.push({
-            id_ValorReferencia: r.data('id')||null,
-            Edad_Minima: minEdad,
-            Edad_Maxima: maxEdad,
-            Sexo: r.find('select[name="Sexo"]').val(),
-            Valor_Referencia_Minimo: vMin,
-            Valor_Referencia_Maximo: vMax,
-            Estado: parseInt(r.find('select[name="Estado"]').val(), 10)
-          });
+          modalHtml += `</div>`;
         });
-
-        if (!allValid) {
-          $('#message-placeholder').html(`<div class="alert alert-danger">${errorMessage}</div>`);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
-        }
-        if (!valoresReferencia.length) return;
-
-        const resumen = valoresReferencia.map((vr,i)=>`<p><strong>Valor ${i+1}:</strong> Edad (${vr.Edad_Minima}-${vr.Edad_Maxima}), Sexo: ${vr.Sexo}, Rango: ${vr.Valor_Referencia_Minimo}-${vr.Valor_Referencia_Maximo}</p>`).join('');
-        $('#modalContent').html(resumen);
+        
+        $('#modalContent').html(modalHtml);
         new bootstrap.Modal($('#confirmationModal')[0]).show();
       });
-
 
       $('#confirmSubmit').off('click').on('click', function() {
         const idDet = $('#id_Determinacion').val();
         const valoresReferencia = [];
+        const esCualitativa = unidadesCualitativas.includes(unidadMedidaSeleccionada);
+
         $('#valoresReferenciaBody tr').each(function() {
-            const r = $(this);
-            valoresReferencia.push({
-              id_ValorReferencia: r.data('id')||null,
-              Edad_Minima: r.find('input[name="Edad_Minima"]').val(),
-              Edad_Maxima: r.find('input[name="Edad_Maxima"]').val(),
-              Sexo: r.find('select[name="Sexo"]').val(),
-              Valor_Referencia_Minimo: r.find('input[name="Valor_Referencia_Minimo"]').val(),
-              Valor_Referencia_Maximo: r.find('input[name="Valor_Referencia_Maximo"]').val(),
-              Estado: parseInt(r.find('select[name="Estado"]').val(), 10)
-            });
+          const r = $(this);
+          const data = {
+            id_ValorReferencia: r.data('id') || null,
+            Edad_Minima: r.find('input[name="Edad_Minima"]').val(),
+            Edad_Maxima: r.find('input[name="Edad_Maxima"]').val(),
+            Sexo: r.find('select[name="Sexo"]').val(),
+            Estado: parseInt(r.find('select[name="Estado"]').val(), 10)
+          };
+
+          if (esCualitativa) {
+            data.Valor_Esperado = r.find('select[name="Valor_Esperado"]').val();
+          } else {
+            data.Valor_Referencia_Minimo = r.find('input[name="Valor_Referencia_Minimo"]').val();
+            data.Valor_Referencia_Maximo = r.find('input[name="Valor_Referencia_Maximo"]').val();
+          }
+          valoresReferencia.push(data);
         });
 
         $.ajax({
@@ -240,18 +228,18 @@ block content
           data:JSON.stringify({ id_Determinacion:idDet, valoresReferencia: valoresReferencia })
         })
         .done(function() {
-            location.reload();
+          location.reload();
         })
         .fail(function(jqXHR) {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
-            if (modal) modal.hide();
-            
-            const errorMsg = jqXHR.responseJSON ? jqXHR.responseJSON.error : "Ocurrió un error inesperado.";
-            
-            $('#deleteModalTitle').text('Error de Validación');
-            $('#deleteModalContent').text(errorMsg);
-            $('#confirmDelete').hide();
-            new bootstrap.Modal($('#deleteModal')[0]).show();
+          const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+          if (modal) modal.hide();
+          
+          const errorMsg = jqXHR.responseJSON ? jqXHR.responseJSON.error : "Ocurrió un error inesperado.";
+          
+          $('#deleteModalTitle').text('Error de Validación');
+          $('#deleteModalContent').text(errorMsg);
+          $('#confirmDelete').hide();
+          new bootstrap.Modal($('#deleteModal')[0]).show();
         });
       });
     });

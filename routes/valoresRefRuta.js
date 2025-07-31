@@ -34,7 +34,7 @@ router.get("/valores/:idDeterminacion", async (req, res) => {
       where: { id_Determinacion: idDeterminacion },
       attributes: [
         "id_ValorReferencia", "Edad_Minima", "Edad_Maxima", "Sexo",
-        "Valor_Referencia_Minimo", "Valor_Referencia_Maximo", "Estado",
+        "Valor_Referencia_Minimo", "Valor_Referencia_Maximo", "Valor_Esperado", "Estado",
       ],
     });
     res.json({ valoresReferencia });
@@ -50,6 +50,14 @@ router.post("/guardar-valores", async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+    const determinacion = await Determinacion.findByPk(id_Determinacion, {
+      include: [{ model: UnidadMedida, as: "unidadMedida" }],
+      transaction
+    });
+    
+    const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
+    const esCualitativa = unidadesCualitativas.includes(determinacion.unidadMedida.nombreUnidadMedida);
+
     for (const valor of valoresReferencia) {
       const { id_ValorReferencia, Edad_Minima, Edad_Maxima, Sexo } = valor;
 
@@ -57,14 +65,12 @@ router.post("/guardar-valores", async (req, res) => {
         where: {
           id_Determinacion,
           Sexo,
-
           id_ValorReferencia: { [Op.ne]: id_ValorReferencia || null }
         },
         transaction
       });
 
       for (const range of existingRanges) {
-
         if (Edad_Minima <= range.Edad_Maxima && Edad_Maxima >= range.Edad_Minima) {
           await transaction.rollback();
           return res.status(400).json({
@@ -73,14 +79,24 @@ router.post("/guardar-valores", async (req, res) => {
         }
       }
 
-      const data = {
+      let data = {
         Edad_Minima,
         Edad_Maxima,
         Sexo,
-        Valor_Referencia_Minimo: valor.Valor_Referencia_Minimo,
-        Valor_Referencia_Maximo: valor.Valor_Referencia_Maximo,
         Estado: valor.Estado,
       };
+
+      if (esCualitativa) {
+
+        data.Valor_Esperado = valor.Valor_Esperado;
+        data.Valor_Referencia_Minimo = null;
+        data.Valor_Referencia_Maximo = null;
+      } else {
+
+        data.Valor_Referencia_Minimo = valor.Valor_Referencia_Minimo;
+        data.Valor_Referencia_Maximo = valor.Valor_Referencia_Maximo;
+        data.Valor_Esperado = null;
+      }
 
       if (id_ValorReferencia) {
         await ValoresReferencia.update(data, { where: { id_ValorReferencia }, transaction });
@@ -110,7 +126,6 @@ router.post("/guardar-valores", async (req, res) => {
 
 router.delete("/eliminar/:id", async (req, res) => {
   const { id } = req.params;
-
   const usuarioId = req.session.usuario.id;
 
   try {

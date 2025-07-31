@@ -8,7 +8,7 @@ const PDFDocument = require("pdfkit");
 
 const { 
   sequelize, OrdenTrabajo, Muestra, Examen, Paciente, 
-  OrdenesExamen, TiposMuestra, Resultado
+  OrdenesExamen, TiposMuestra, Resultado, Determinacion
 } = require("../models");
 const auditoriaController = require("./AuditoriaRuta");
 
@@ -449,6 +449,7 @@ router.get("/registrarResultados/:id_Orden", async (req, res) => {
           vr.Sexo AS SexoValorReferencia,
           vr.Edad_Minima AS EdadMinimaValorReferencia,
           vr.Edad_Maxima AS EdadMaximaValorReferencia,
+          vr.Valor_Esperado AS ValorEsperado,
           r.Valor AS ResultadoValor -- Resultado existente si lo hay
       FROM 
           ordenes_trabajo ot
@@ -499,46 +500,55 @@ router.post("/registrarResultados", async (req, res) => {
     try {
         transaction = await sequelize.transaction();
 
+        const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
+
         for (const key in campos) {
             if (key.startsWith("resultado_")) {
                 const valorStr = campos[key];
-
                 if (valorStr === null || valorStr.trim() === '') {
                     continue;
                 }
 
-                const valor = parseFloat(valorStr);
                 const idDeterminacion = key.split("_")[1];
+                const unidad = campos[`unidad_${idDeterminacion}`];
+                let valor;
+                let errorValidacion = null;
 
 
-                const refMaxStr = campos[`ref_max_${idDeterminacion}`];
+                if (unidadesCualitativas.includes(unidad)) {
 
-
-                if (refMaxStr !== undefined && refMaxStr !== null) {
-                    const refMax = parseFloat(refMaxStr);
-
-                    const limiteSuperior = refMax * (1 + MARGEN_VALIDACION);
-
-                    if (isNaN(valor) || valor < 0 || valor > limiteSuperior) {
-                        await transaction.rollback();
-
-                        const mensajeError = `El valor ingresado "${valorStr}" no es válido. Debe ser un número entre 0 y ${limiteSuperior.toFixed(2)}.`;
-                        req.flash('error', mensajeError);
-                        return res.redirect(`/orden/registrarResultados/${idOrden}${origen ? `?origen=${origen}` : ''}`);
+                    const opcionesValidas = unidad.split(' / ');
+                    if (opcionesValidas.includes(valorStr)) {
+                        valor = valorStr;
+                    } else {
+                        errorValidacion = `El valor "${valorStr}" no es válido para la unidad "${unidad}".`;
                     }
                 } else {
 
-                    if (isNaN(valor) || valor < 0) {
-                        await transaction.rollback();
-                        const mensajeError = `El valor ingresado "${valorStr}" no es válido. Debe ser un número positivo.`;
-                        req.flash('error', mensajeError);
-                        return res.redirect(`/orden/registrarResultados/${idOrden}${origen ? `?origen=${origen}` : ''}`);
+                    valor = parseFloat(valorStr);
+                    if (isNaN(valor)) {
+                        errorValidacion = `El valor "${valorStr}" no es un número válido.`;
+                    } else {
+                      const refMaxStr = campos[`ref_max_${idDeterminacion}`];
+                      if (refMaxStr !== undefined && refMaxStr !== null) {
+                        const refMax = parseFloat(refMaxStr);
+                        const limiteSuperior = refMax * (1 + MARGEN_VALIDACION);
+                        if (valor < 0 || valor > limiteSuperior) {
+                          errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número entre 0 y ${limiteSuperior.toFixed(2)}.`;
+                        }
+                      } else if (valor < 0) {
+                        errorValidacion = `El valor ingresado "${valorStr}" no es válido. Debe ser un número positivo.`;
+                      }
                     }
                 }
+
+                if (errorValidacion) {
+                    await transaction.rollback();
+                    req.flash('error', errorValidacion);
+                    return res.redirect(`/orden/registrarResultados/${idOrden}${origen ? `?origen=${origen}` : ''}`);
+                }
+
                 
-
-                const unidad = campos[`unidad_${idDeterminacion}`];
-
                 const [resultadoExistente] = await sequelize.query(
                     `SELECT id_Resultado FROM resultados WHERE id_Orden = :idOrden AND id_Determinacion = :idDeterminacion`,
                     { replacements: { idOrden, idDeterminacion }, type: sequelize.QueryTypes.SELECT, transaction }
@@ -551,9 +561,34 @@ router.post("/registrarResultados", async (req, res) => {
                     );
                     await auditoriaController.registrar(usuarioId, "Actualizar Resultado", `Resultado actualizado para la determinación ${idDeterminacion} de la orden ${idOrden}`);
                 } else {
+                    const determinacion = await Determinacion.findByPk(idDeterminacion, {
+                        include: [{ model: Examen, as: 'examen', include: [{ model: TiposMuestra, as: 'tipoMuestra' }] }],
+                        transaction
+                    });
+
+                    if (!determinacion || !determinacion.examen || !determinacion.examen.tipoMuestra) {
+                        await transaction.rollback();
+                        return res.status(500).send(`Error: No se pudo encontrar el tipo de muestra para la determinación ID ${idDeterminacion}.`);
+                    }
+
+                    const muestra = await Muestra.findOne({
+                        where: {
+                            id_Orden: idOrden,
+                            idTipoMuestra: determinacion.examen.tipoMuestra.idTipoMuestra
+                        },
+                        transaction
+                    });
+
+                    if (!muestra) {
+                        await transaction.rollback();
+                        return res.status(500).send(`Error: No se encontró una muestra del tipo "${determinacion.examen.tipoMuestra.tipoDeMuestra}" para la orden ID ${idOrden}.`);
+                    }
+                    
+                    const idMuestra = muestra.id_Muestra;
+
                     await sequelize.query(
-                        `INSERT INTO resultados (id_Orden, id_Determinacion, Valor, Unidad, Estado) VALUES (:idOrden, :idDeterminacion, :valor, :unidad, 'Para Validar')`,
-                        { replacements: { idOrden, idDeterminacion, valor, unidad }, type: sequelize.QueryTypes.INSERT, transaction }
+                        `INSERT INTO resultados (id_Orden, id_Determinacion, id_Muestra, Valor, Unidad, Estado) VALUES (:idOrden, :idDeterminacion, :idMuestra, :valor, :unidad, 'Para Validar')`,
+                        { replacements: { idOrden, idDeterminacion, idMuestra, valor, unidad }, type: sequelize.QueryTypes.INSERT, transaction }
                     );
                     await auditoriaController.registrar(usuarioId, "Crear Resultado", `Nuevo resultado creado para la determinación ${idDeterminacion} de la orden ${idOrden}`);
                 }
@@ -567,7 +602,7 @@ router.post("/registrarResultados", async (req, res) => {
         await auditoriaController.registrar(usuarioId, "Actualizar Estado de Orden", `Estado de la orden ${idOrden} actualizado a 'Para Validar'`);
         
         await transaction.commit();
-        req.flash('success', "Resultados actualizados correctamente");
+        req.flash('success', "Resultados guardados correctamente");
 
         if (origen === 'validar') {
             res.redirect(`/orden/validarResultados/${idOrden}`);
@@ -578,7 +613,8 @@ router.post("/registrarResultados", async (req, res) => {
     } catch (error) {
         console.error("Error al guardar los resultados:", error);
         if (transaction) await transaction.rollback();
-        res.status(500).send("Error al guardar los resultados.");
+        req.flash('error', `Ocurrió un error al guardar los resultados: ${error.message}`);
+        res.redirect(`/orden/registrarResultados/${idOrden}${origen ? `?origen=${origen}` : ''}`);
     }
 });
 
@@ -700,7 +736,6 @@ router.get("/pendientesAValidar", async (req, res) => {
     const limit = 10;
     const offset = (page - 1) * limit;
 
-
     const { rows: ordenes, count: totalOrdenes } =
       await OrdenTrabajo.findAndCountAll({
         limit,
@@ -717,12 +752,24 @@ router.get("/pendientesAValidar", async (req, res) => {
       });
 
 
-    const totalPages = Math.ceil(totalOrdenes / limit);
+    const ordenesConFormato = ordenes.map((orden) => {
 
+      const ordenData = orden.toJSON(); 
+      return {
+        ...ordenData,
+
+        Fecha_Creacion: formatDate(ordenData.Fecha_Creacion),
+        Fecha_Entrega: formatDate(ordenData.Fecha_Entrega),
+      };
+    });
+
+
+    const totalPages = Math.ceil(totalOrdenes / limit);
 
     res.render("pendientesAValidar", {
       pageTitle: 'Órdenes Pendientes de Validación',
-      ordenes,
+
+      ordenes: ordenesConFormato, 
       currentPage: parseInt(page, 10),
       totalPages,
     });
@@ -902,7 +949,7 @@ const formatDate = (date) => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${day}-${month}-${year}`;
 };
 
 
@@ -912,13 +959,19 @@ router.post("/actualizar-orden/:idOrden", async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const { examenesSelectedIds, ...estadosMuestras } = req.body;
+
+    const { diagnostico, examenesSelectedIds, ...estadosMuestras } = req.body;
 
     const orden = await OrdenTrabajo.findByPk(idOrden, { transaction });
     if (!orden) {
       await transaction.rollback();
       return res.status(404).send("Orden no encontrada.");
     }
+    
+
+    await orden.update({ diagnostico }, { transaction });
+
+
 
     await OrdenesExamen.destroy({ where: { id_Orden: idOrden }, transaction });
     await Muestra.destroy({ where: { id_Orden: idOrden }, transaction });

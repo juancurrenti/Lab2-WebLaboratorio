@@ -1,7 +1,6 @@
 extends layout
 
 block content
-
   - const pageTitle = modificar ? 'Modificar Resultados' : 'Registrar Resultados'
   - const buttonText = modificar ? 'Guardar Cambios' : 'Guardar Resultados'
   - const buttonClass = modificar ? 'btn-warning' : 'btn-primary'
@@ -10,8 +9,8 @@ block content
     h1.text-center.mt-4= pageTitle
 
     if errorMessages && errorMessages.length > 0
-        each msg in errorMessages
-            .alert.alert-danger.text-center= msg
+      each msg in errorMessages
+        .alert.alert-danger.text-center= msg
 
     if orden && orden.length > 0
       .row
@@ -37,29 +36,44 @@ block content
                 td= item.NombreExamen
                 td= item.NombreDeterminacion
                 td= item.UnidadMedidaDeterminacion
-                td #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
+                td
+                  - const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia']
+                  if unidadesCualitativas.includes(item.UnidadMedidaDeterminacion)
+                    | Esperado: #{item.ValorEsperado}
+                  else
+                    | #{item.ValorReferenciaMinimo} - #{item.ValorReferenciaMaximo}
                 td= item.SexoValorReferencia == 'M' ? 'Masculino' : (item.SexoValorReferencia == 'F' ? 'Femenino' : 'Ambos')
                 td
-                  input.form-control(
-                    type="number",
-                    step="0.01",
-                    min="0.00",
-                    
-                    name=`resultado_${item.DeterminacionID}`,
-                    placeholder="Ingrese resultado",
-                    value=item.ResultadoValor || "",
-                    data-determinacion=item.NombreDeterminacion,
-                    data-examen=item.NombreExamen,
-                    data-unidad=item.UnidadMedidaDeterminacion,
-                    data-min=item.ValorReferenciaMinimo,
-                    data-max=item.ValorReferenciaMaximo
-                  )
+                  if unidadesCualitativas.includes(item.UnidadMedidaDeterminacion)
+                    select.form-select(
+                      name=`resultado_${item.DeterminacionID}`,
+                      data-determinacion=item.NombreDeterminacion,
+                      data-examen=item.NombreExamen,
+                      data-unidad=item.UnidadMedidaDeterminacion
+                    )
+                      option(value="" selected=(!item.ResultadoValor)) Seleccione...
+                      - const opciones = item.UnidadMedidaDeterminacion.split(' / ')
+                      each opcion in opciones
+                        option(value=opcion selected=(item.ResultadoValor === opcion))= opcion
+                  else
+                    input.form-control(
+                      type="number",
+                      step="0.01",
+                      min="0.00",
+                      name=`resultado_${item.DeterminacionID}`,
+                      placeholder="Ingrese resultado",
+                      value=item.ResultadoValor || "",
+                      data-determinacion=item.NombreDeterminacion,
+                      data-examen=item.NombreExamen,
+                      data-unidad=item.UnidadMedidaDeterminacion,
+                      data-min=item.ValorReferenciaMinimo,
+                      data-max=item.ValorReferenciaMaximo
+                    )
                   input(type="hidden", name=`unidad_${item.DeterminacionID}`, value=item.UnidadMedidaDeterminacion)
                   input(type="hidden", name=`ref_max_${item.DeterminacionID}`, value=item.ValorReferenciaMaximo)
 
         button.btn.mt-3(type="button", class=buttonClass, data-bs-toggle="modal", data-bs-target="#confirmModal")= buttonText
         a.btn.btn-secondary.mt-3.ms-2(href="javascript:history.back()") Volver
-
 
       .modal.fade#confirmModal(tabindex="-1", aria-labelledby="confirmModalLabel", aria-hidden="true")
         .modal-dialog.modal-lg
@@ -80,15 +94,15 @@ block content
             .modal-footer
               button.btn.btn-secondary(type="button", data-bs-dismiss="modal") Cancelar
               button.btn.btn-primary(type="button", onclick="enviarFormulario();") Confirmar y Enviar
-
     else
       .row
         .col-lg-12.text-center
           p.text-muted No se encontraron resultados a analizar para esta orden.
 
+  // --- INICIO DEL SCRIPT MODIFICADO PARA DIAGNÓSTICO ---
   script.
-
     function validarResultado(input) {
+      if (input.type !== 'number') return;
       const min = parseFloat(input.dataset.min);
       const max = parseFloat(input.dataset.max);
       const valor = parseFloat(input.value);
@@ -105,10 +119,8 @@ block content
       }
     }
 
-
     document.addEventListener("DOMContentLoaded", () => {
       const inputsDeResultado = document.querySelectorAll("input[name^='resultado_']");
-
       inputsDeResultado.forEach(input => {
         validarResultado(input);
         input.addEventListener('input', () => {
@@ -119,20 +131,27 @@ block content
       const form = document.getElementById("registrarResultadosForm");
       if (form) {
         const modalBodyTable = document.getElementById("confirmTableBody");
-        const inputs = form.querySelectorAll("input[type='number'][name^='resultado_']");
+        const inputs = form.querySelectorAll("input[name^='resultado_'], select[name^='resultado_']");
 
         const updateModalTable = () => {
           modalBodyTable.innerHTML = "";
+          
+          console.log("Abriendo modal. Campos de resultado encontrados:", inputs.length);
+
           inputs.forEach(input => {
-            const row = document.createElement("tr");
-            const estiloColor = (input.style.color === 'red') ? 'style="color: red; font-weight: bold;"' : '';
-            row.innerHTML = `
-              <td>${input.dataset.examen}</td>
-              <td>${input.dataset.determinacion}</td>
-              <td>${input.dataset.unidad}</td>
-              <td ${estiloColor}>${input.value || "Sin resultado"}</td>
-            `;
-            modalBodyTable.appendChild(row);
+            console.log(`Revisando campo: ${input.name}, Valor: '${input.value}'`);
+            
+            if (input.value && input.value.trim() !== '') {
+              const row = document.createElement("tr");
+              const estiloColor = (input.style && input.style.color === 'red') ? 'style="color: red; font-weight: bold;"' : '';
+              row.innerHTML = `
+                <td>${input.dataset.examen}</td>
+                <td>${input.dataset.determinacion}</td>
+                <td>${input.dataset.unidad}</td>
+                <td ${estiloColor}>${input.value}</td>
+              `;
+              modalBodyTable.appendChild(row);
+            }
           });
         };
 

@@ -23,7 +23,7 @@ block content
             td= orden.paciente ? `${orden.paciente.nombre} ${orden.paciente.apellido}` : "Sin asignar"
             td= orden.dni
             td= orden.estado
-            td= orden.Fecha_Creacion ? orden.Fecha_Creacion.toISOString().split("T")[0] : "No disponible"
+            td= orden.Fecha_Creacion
             td= orden.Fecha_Entrega
             td
               a.btn.btn-warning(href=`/orden/validarResultados/${orden.id_Orden}`) Ir a Validar

@@ -264,7 +264,7 @@ block content
                 }
             });
 
-            // Lógica para el botón de desactivación
+
             $('#confirmar-desactivacion-btn').on('click', function() {
                 const pacienteId = $(this).data('paciente-id');
                 if (!pacienteId) return alert('Error: No se encontró el ID del paciente.');
@@ -274,7 +274,7 @@ block content
                     .then(response => { if (response.redirected) window.location.href = response.url; });
             });
 
-            // Lógica para el botón de reactivación
+
             $('#confirmar-reactivacion-btn').on('click', function() {
                 const pacienteId = $(this).data('paciente-id');
                 if (!pacienteId) return alert('Error: No se encontró el ID del paciente.');

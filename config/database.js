@@ -1,14 +1,14 @@
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize({
-  dialect: 'mysql', // Especifica la base de datos que estás utilizando
-  host: 'localhost', // Dirección del servidor de la base de datos
-  username: 'root', // Nombre de usuario de la base de datos
-  password: '', // Contraseña de la base de datos
-  database: 'clinica', // Nombre de la base de datos
+  dialect: 'mysql',
+  host: 'localhost',
+  username: 'root',
+  password: '',
+  database: 'clinica',
 });
 
-// Prueba la conexión a la base de datos
+
 async function testDatabaseConnection() {
   try {
     await sequelize.authenticate();
@@ -18,5 +18,5 @@ async function testDatabaseConnection() {
   }
 }
 
-// Exporta la instancia de Sequelize
+
 module.exports = sequelize;

@@ -111,7 +111,7 @@ router.post("/editar-paciente/:id", async (req, res) => {
     }
 });
 
-router.post("/desactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico']), async (req, res) => {
+router.post("/desactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico', 'tecnico']), async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
         const paciente = await Paciente.findByPk(req.params.id, { transaction });
@@ -142,7 +142,7 @@ router.post("/desactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bi
     }
 });
 
-router.post("/reactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico']), async (req, res) => {
+router.post("/reactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bioquimico', 'tecnico']), async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
         const paciente = await Paciente.findByPk(req.params.id, { transaction });
@@ -174,7 +174,7 @@ router.post("/reactivar-paciente/:id", checkRole(['admin', 'recepcionista', 'bio
 });
 
 
-router.post("/guardar-paciente", checkRole(['bioquimico', 'recepcionista', 'admin']), async (req, res) => {
+router.post("/guardar-paciente", checkRole(['bioquimico', 'recepcionista', 'admin', 'tecnico']), async (req, res) => {
     const { dni, nombre, apellido, email, ...pacienteData } = req.body;
     const transaction = await sequelize.transaction();
     
@@ -364,7 +364,6 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
   const usuarioSesion = req.session.usuario;
 
   try {
-
     const orden = await OrdenTrabajo.findByPk(idOrden);
     if (!orden) return res.status(404).send("Orden no encontrada.");
     if (!usuarioSesion.esEmpleado && orden.id_Paciente !== usuarioSesion.idPaciente) {
@@ -377,38 +376,39 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
           e.nombre_examen,
           d.Nombre_Determinacion,
           r.Valor AS valor_resultado,
-          r.Unidad AS unidad_resultado,
+          um.nombreUnidadMedida AS unidad_medida,
           vr.Valor_Referencia_Minimo,
           vr.Valor_Referencia_Maximo,
+          vr.Valor_Esperado,
           p.nombre AS nombre_paciente,
           p.apellido AS apellido_paciente,
           p.dni AS dni_paciente,
           p.genero AS sexo_paciente,
           o.Fecha_Creacion AS fecha_orden,
           o.Fecha_Creacion AS fecha_ingreso
-       FROM resultados r
-       INNER JOIN determinaciones d ON r.id_Determinacion = d.id_Determinacion
-       INNER JOIN examen e ON d.id_examen = e.id_examen
-       INNER JOIN ordenes_trabajo o ON r.id_Orden = o.id_Orden
-       INNER JOIN pacientes p ON o.id_Paciente = p.id_paciente
-       INNER JOIN valoresreferencia vr 
-         ON d.id_Determinacion = vr.id_Determinacion 
-         AND (vr.Sexo = UPPER(LEFT(p.genero,1)) OR vr.Sexo = 'A')
-         AND TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
-       WHERE o.id_Orden = :idOrden
-       ORDER BY e.nombre_examen, d.Nombre_Determinacion;`,
+        FROM resultados r
+        INNER JOIN determinaciones d ON r.id_Determinacion = d.id_Determinacion
+        INNER JOIN unidadmedida um ON d.Unidad_Medida = um.id_UnidadMedida
+        INNER JOIN examen e ON d.id_examen = e.id_examen
+        INNER JOIN ordenes_trabajo o ON r.id_Orden = o.id_Orden
+        INNER JOIN pacientes p ON o.id_Paciente = p.id_paciente
+        LEFT JOIN valoresreferencia vr 
+          ON d.id_Determinacion = vr.id_Determinacion 
+          AND (vr.Sexo = UPPER(LEFT(p.genero,1)) OR vr.Sexo = 'A')
+          AND TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) BETWEEN vr.Edad_Minima AND vr.Edad_Maxima
+        WHERE o.id_Orden = :idOrden
+        ORDER BY e.nombre_examen, d.Nombre_Determinacion;`,
       { replacements: { idOrden }, type: sequelize.QueryTypes.SELECT }
     );
+
     if (resultados.length === 0) {
       return res.status(404).send("No se encontraron resultados para esta orden.");
     }
 
- 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     res.setHeader('Content-Type','application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=Orden_${idOrden}.pdf`);
     doc.pipe(res);
-
 
     const watermarkPath = path.join(__dirname,'../public/img/iconopdf.png');
     const drawWatermark = () => {
@@ -427,11 +427,9 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     drawWatermark();
     doc.on('pageAdded', drawWatermark);
 
-
     if (fs.existsSync(watermarkPath)) {
       doc.image(watermarkPath, (doc.page.width-60)/2, 30, { width: 60 });
     }
-
 
     const titleX = 50, titleY = 120;
     doc
@@ -439,7 +437,6 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
       .fillColor('#000')
       .text('Informe de Resultados de Laboratorio', titleX, titleY, { align: 'center' });
     doc.lineWidth(1).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-
 
     const p = resultados[0];
     const sexo = p.sexo_paciente.toLowerCase() === 'masculino' ? 'Masculino' : 'Femenino';
@@ -451,7 +448,6 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
       `DNI: ${p.dni_paciente}`,
       `Fecha Ingreso: ${new Date(p.fecha_ingreso).toLocaleDateString('es-AR')}`,
       `Sexo: ${sexo}`
-      
     ];
     info.forEach((txt,i) => {
       const x = 50 + (i%2)*250;
@@ -462,12 +458,11 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     doc.moveTo(50, doc.y).lineTo(550, doc.y).lineWidth(0.5).stroke('#333');
     doc.moveDown();
 
-
     const colsX = { examen:50, det:180, res:330, ref:430 };
     const headerY = doc.y;
 
     doc.fontSize(9).fillColor('#333');
-    doc.text('Examen',        colsX.examen, headerY, { width:130, align:'left' })
+    doc.text('Examen',         colsX.examen, headerY, { width:130, align:'left' })
        .text('Determinación', colsX.det,    headerY, { width:140, align:'left' })
        .text('Resultado',     colsX.res,    headerY, { width:100, align:'center' })
        .text('Valores Ref.',  colsX.ref,    headerY, { width:100, align:'right' });
@@ -476,19 +471,31 @@ router.get("/generarPDF/:idOrden", async (req, res) => {
     doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
     doc.moveDown(0.5);
 
-
     doc.fontSize(9).fillColor('#000');
     resultados.forEach(r => {
       const rowY = doc.y;
-      const resultadoTxt = `${parseFloat(r.valor_resultado).toFixed(2)} ${r.unidad_resultado}`;
-      const refTxt = `${parseFloat(r.Valor_Referencia_Minimo).toFixed(2)} - ${parseFloat(r.Valor_Referencia_Maximo).toFixed(2)}`;
-      doc.text(r.nombre_examen,        colsX.examen, rowY, { width:130, align:'left' })
-         .text(r.Nombre_Determinacion, colsX.det,    rowY, { width:140, align:'left' })
-         .text(resultadoTxt,           colsX.res,    rowY, { width:100, align:'center' })
-         .text(refTxt,                 colsX.ref,    rowY, { width:100, align:'right' });
+      const unidadesCualitativas = ['Positivo / Negativo', 'Reactivo / No Reactivo', 'Ausencia / Presencia'];
+      let resultadoTxt = '';
+      let refTxt = '';
+
+      if (unidadesCualitativas.includes(r.unidad_medida)) {
+
+        resultadoTxt = r.valor_resultado;
+        refTxt = r.Valor_Esperado || 'N/A';
+      } else {
+
+        resultadoTxt = r.valor_resultado ? parseFloat(r.valor_resultado).toFixed(2) : 'N/A';
+        refTxt = (r.Valor_Referencia_Minimo != null && r.Valor_Referencia_Maximo != null) 
+          ? `${parseFloat(r.Valor_Referencia_Minimo).toFixed(2)} - ${parseFloat(r.Valor_Referencia_Maximo).toFixed(2)}`
+          : 'N/A';
+      }
+
+      doc.text(r.nombre_examen,         colsX.examen, rowY, { width:130, align:'left' })
+         .text(r.Nombre_Determinacion,  colsX.det,    rowY, { width:140, align:'left' })
+         .text(resultadoTxt,            colsX.res,    rowY, { width:100, align:'center' })
+         .text(refTxt,                  colsX.ref,    rowY, { width:100, align:'right' });
       doc.moveDown(1);
     });
-
 
     doc.end();
 
